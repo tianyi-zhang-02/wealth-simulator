@@ -10,7 +10,26 @@ import { updateSession } from '@/lib/supabase/proxy';
  *   3. Redirect already-authenticated users away from /login.
  */
 
-const PUBLIC_PATHS = new Set<string>(['/login']);
+/**
+ * Public routes are explicitly allowlisted by exact path to keep the
+ * surface area tiny. The send/verify OTP routes must be reachable by
+ * unauthenticated users — without them in this list, the proxy would
+ * redirect their POST to /login (HTTP 307), the browser's fetch would
+ * follow as a POST to /login, get a 200 HTML body back, and the client
+ * would *think* it succeeded while Supabase was never called.
+ *
+ * Do NOT widen this to a `/api/auth/` prefix — that would open any
+ * future auth route by default. Add new routes by name on purpose.
+ *
+ * /api/auth/signout intentionally stays gated; an unauthenticated POST
+ * to it has nothing to sign out anyway.
+ */
+const PUBLIC_PATHS = new Set<string>([
+  '/login',
+  '/api/auth/send-otp',
+  '/api/auth/verify-otp',
+]);
+// /auth/confirm is the magic-link callback; unauth users must reach it.
 const PUBLIC_PREFIXES = ['/auth/'];
 
 function isPublicPath(pathname: string): boolean {

@@ -33,19 +33,39 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError.badRequest();
 
   const supabase = await getServerSupabase();
-  const { error } = await supabase.auth.signInWithOtp({
+  const startedAt = Date.now();
+  const { data, error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: {
       // Lets new emails sign in (creates the auth.users row on first verify).
       shouldCreateUser: true,
     },
   });
+  const elapsedMs = Date.now() - startedAt;
 
-  // We deliberately return the same shape whether or not the email exists or
-  // Supabase rejected the request. Don't leak enumeration signals.
+  // Verbose server-side logging — never returned to the client. Whatever the
+  // result, the public response stays a generic { ok: true } so we don't leak
+  // email-enumeration signals.
   if (error) {
-    // Log on the server only.
-    console.warn('[send-otp] supabase error', { code: error.code });
+    // Single-string log so Next.js's dev-log file captures the full payload.
+    console.warn(
+      `[send-otp] supabase.auth.signInWithOtp ERROR ${JSON.stringify({
+        elapsedMs,
+        status: error.status,
+        code: error.code,
+        name: error.name,
+        message: error.message,
+      })}`,
+    );
+  } else {
+    console.info(
+      `[send-otp] supabase.auth.signInWithOtp ok ${JSON.stringify({
+        elapsedMs,
+        // data fields are deliberately limited — no PII in logs.
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
+      })}`,
+    );
   }
 
   return NextResponse.json({ ok: true });

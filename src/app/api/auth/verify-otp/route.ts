@@ -32,16 +32,35 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError.badRequest();
 
   const supabase = await getServerSupabase();
-  const { error } = await supabase.auth.verifyOtp({
+  const startedAt = Date.now();
+  const { data, error } = await supabase.auth.verifyOtp({
     email: parsed.data.email,
     token: parsed.data.token,
     type: 'email',
   });
+  const elapsedMs = Date.now() - startedAt;
 
   if (error) {
+    console.warn(
+      `[verify-otp] supabase.auth.verifyOtp ERROR ${JSON.stringify({
+        elapsedMs,
+        status: error.status,
+        code: error.code,
+        name: error.name,
+        message: error.message,
+      })}`,
+    );
     // Generic to avoid leaking which step failed.
     return apiError.badRequest('invalid_or_expired_code');
   }
+
+  console.info(
+    `[verify-otp] supabase.auth.verifyOtp ok ${JSON.stringify({
+      elapsedMs,
+      hasUser: !!data?.user,
+      hasSession: !!data?.session,
+    })}`,
+  );
 
   return NextResponse.json({ ok: true });
 }

@@ -235,13 +235,23 @@ Don't make assumptions on any of these. Stop and ask the user:
 
 ---
 
+## Known security debt — address in Step 13
+
+These are open issues from the Supabase Security Advisor / dev review. Don't fix in passing; bundle them in the hardening pass so they get the attention they deserve.
+
+1. **`public.rls_auto_enable()` — Public Can Execute SECURITY DEFINER Functions.** A SECURITY DEFINER function exposed to the `anon`/`public` role is a privilege-escalation surface. Either drop it, restrict its grants (`REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO service_role;`), or rewrite without SECURITY DEFINER.
+2. **`public.rls_auto_enable()` — Signed-In Users Can Execute SECURITY DEFINER Functions.** Same root cause as #1; the fix above also closes this.
+3. **Leaked Password Protection Disabled.** Only relevant if we ever introduce password auth (currently magic-link only). If we do, enable it under Authentication → Providers → Email → "Leaked password protection".
+
+---
+
 ## Current State
 
 - Step 1 ✅ — repo scaffolded
 - Step 2 ✅ — schema committed at `supabase/schema.sql`, waiting on user to run it in Supabase dashboard
-- Step 3 ✅ — magic-link auth (OTP + magic-link callback); code-complete but unverified end-to-end until env vars are provisioned
+- Step 3 ✅ — magic-link auth; bug fixed (proxy now allowlists `/api/auth/send-otp` + `/api/auth/verify-otp` so unauthenticated POSTs aren't redirected to /login). Awaiting first successful end-to-end sign-in.
 - Step 4 ✅ — layout shell (fonts, bottom nav, (app) route group, placeholder section pages)
 - Step 5 ✅ — accounts CRUD (API routes + list page + add/edit/archive form)
-- Step 6 ⏳ — transactions CRUD (next up)
+- Step 6 ⏳ — transactions CRUD (blocked on auth verification)
 
 Update this section after every completed step.
