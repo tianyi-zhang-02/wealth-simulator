@@ -30,6 +30,15 @@ export default async function SettingsPage() {
               <span className="text-muted text-xs">→</span>
             </Link>
           </li>
+          <li>
+            <Link
+              href="/simulator"
+              className="hover:bg-foreground/5 flex items-center justify-between px-3 py-2 text-sm"
+            >
+              <span>Wealth simulator</span>
+              <span className="text-muted text-xs">→</span>
+            </Link>
+          </li>
         </ul>
       </section>
 
