@@ -254,6 +254,7 @@ These are open issues from the Supabase Security Advisor / dev review. Don't fix
 - Step 5 ✅ — accounts CRUD (API routes + list page + add/edit/archive form)
 - Step 6 ✅ — transactions CRUD (API routes, filterable list, add/edit/delete form, categories autocomplete)
 - Step 7 ✅ — snapshots (single + bulk month-end), /api/networth aggregator, 12-month Recharts line on dashboard, /accounts/:id drill-down with snapshot history
-- Step 8 ⏳ — savings goals (next up)
+- Step 8 ✅ — savings goals CRUD (cards with progress bar, % complete, projected completion date, linked-account auto-progress)
+- Step 9 ⏳ — holdings + Alpha Vantage proxy (next up — ⚠ security-sensitive, pause for review)
 
 Update this section after every completed step.
