@@ -249,9 +249,9 @@ These are open issues from the Supabase Security Advisor / dev review. Don't fix
 
 - Step 1 ✅ — repo scaffolded
 - Step 2 ✅ — schema committed at `supabase/schema.sql`, waiting on user to run it in Supabase dashboard
-- Step 3 ✅ — magic-link auth; bug fixed (proxy now allowlists `/api/auth/send-otp` + `/api/auth/verify-otp` so unauthenticated POSTs aren't redirected to /login). Awaiting first successful end-to-end sign-in.
+- Step 3 ✅ — magic-link auth; proxy allowlists `/api/auth/send-otp` + `/api/auth/verify-otp`; 8-digit OTP form; client-only token schema so the empty-email field doesn't silently fail handleSubmit. End-to-end sign-in confirmed working.
 - Step 4 ✅ — layout shell (fonts, bottom nav, (app) route group, placeholder section pages)
 - Step 5 ✅ — accounts CRUD (API routes + list page + add/edit/archive form)
-- Step 6 ⏳ — transactions CRUD (blocked on auth verification)
+- Step 6 ⏳ — transactions CRUD (in progress)
 
 Update this section after every completed step.

@@ -24,11 +24,7 @@ import { updateSession } from '@/lib/supabase/proxy';
  * /api/auth/signout intentionally stays gated; an unauthenticated POST
  * to it has nothing to sign out anyway.
  */
-const PUBLIC_PATHS = new Set<string>([
-  '/login',
-  '/api/auth/send-otp',
-  '/api/auth/verify-otp',
-]);
+const PUBLIC_PATHS = new Set<string>(['/login', '/api/auth/send-otp', '/api/auth/verify-otp']);
 // /auth/confirm is the magic-link callback; unauth users must reach it.
 const PUBLIC_PREFIXES = ['/auth/'];
 

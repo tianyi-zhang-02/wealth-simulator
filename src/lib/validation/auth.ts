@@ -7,7 +7,10 @@ export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 
 // Supabase emits 8-digit numeric OTPs for our project's email template.
 // Strict regex — any other length is rejected before we hit Supabase.
-const tokenField = z.string().trim().regex(/^\d{8}$/, 'token must be exactly 8 digits');
+const tokenField = z
+  .string()
+  .trim()
+  .regex(/^\d{8}$/, 'token must be exactly 8 digits');
 
 /**
  * Full server-side schema for POST /api/auth/verify-otp — both fields are
