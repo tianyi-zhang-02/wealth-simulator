@@ -9,7 +9,10 @@ import type { Account } from '@/lib/types/account';
 import type { Goal } from '@/lib/types/goal';
 import { createGoalSchema, type CreateGoalInput } from '@/lib/validation/goals';
 
-type LatestMap = Record<string, { balance: string; snapshot_date: string }>;
+export type AccountBalanceMap = Record<
+  string,
+  { value: number; source: 'snapshot' | 'holdings' | 'none'; as_of: string | null }
+>;
 
 type FormMode = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; goal: Goal };
 
@@ -54,11 +57,11 @@ function project(goal: Goal, currentBalance: number | null): Projection {
 export default function GoalsClient({
   initialGoals,
   accounts,
-  latestByAccount,
+  balanceMap,
 }: {
   initialGoals: Goal[];
   accounts: Account[];
-  latestByAccount: LatestMap;
+  balanceMap: AccountBalanceMap;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<FormMode>({ kind: 'closed' });
@@ -129,10 +132,10 @@ export default function GoalsClient({
             const currency = account?.currency ?? 'USD';
             const target = Number(goal.target_amount);
             const monthly = Number(goal.monthly_contribution);
-            const latest = goal.linked_account_id
-              ? latestByAccount[goal.linked_account_id]
-              : undefined;
-            const current = latest ? Number(latest.balance) : null;
+            // Live per-account balance pulled from the canonical helper —
+            // identical to what the accounts list and dashboard show.
+            const bal = goal.linked_account_id ? balanceMap[goal.linked_account_id] : undefined;
+            const current = bal && bal.source !== 'none' ? bal.value : null;
             const pct =
               current !== null && target > 0
                 ? Math.max(0, Math.min(100, (current / target) * 100))

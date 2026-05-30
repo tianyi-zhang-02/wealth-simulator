@@ -2,14 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import NetWorthChart, { type ChartPoint } from '@/components/charts/net-worth-chart';
+import { computeNetWorth } from '@/lib/derived/networth';
 import { getServerSupabase, getAuthedUser } from '@/lib/supabase/server';
-import type { AccountType } from '@/lib/validation/accounts';
-
-import { KIND_LABELS } from './transactions/transaction-form';
 import type { TransactionKind } from '@/lib/validation/transactions';
 
-const LIQUID = new Set<AccountType>(['cash', 'savings']);
-const INVESTED = new Set<AccountType>(['brokerage', 'retirement', 'crypto']);
+import { KIND_LABELS } from './transactions/transaction-form';
 
 const SIGN_BY_KIND: Record<TransactionKind, '+' | '−' | '↑' | '↓'> = {
   income: '+',
@@ -23,28 +20,6 @@ const TONE_BY_KIND: Record<TransactionKind, string> = {
   savings_deposit: 'text-muted',
   savings_withdrawal: 'text-muted',
 };
-
-function monthEnd(year: number, month: number): string {
-  const d = new Date(year, month + 1, 0);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function netWorthAt(
-  asOf: string,
-  byAccount: Map<string, Array<{ balance: string; snapshot_date: string }>>,
-) {
-  let total = 0;
-  for (const list of byAccount.values()) {
-    let latest: { balance: string; snapshot_date: string } | undefined;
-    for (const s of list) {
-      if (s.snapshot_date <= asOf && (!latest || s.snapshot_date > latest.snapshot_date)) {
-        latest = s;
-      }
-    }
-    if (latest) total += Number(latest.balance);
-  }
-  return total;
-}
 
 function fmtCurrency(n: number, withCents = false): string {
   return new Intl.NumberFormat('en-US', {
@@ -71,13 +46,13 @@ export default async function DashboardPage() {
 
   const supabase = await getServerSupabase();
 
-  const [accountsRes, snapshotsRes, txsRes] = await Promise.all([
-    supabase.from('accounts').select('id, type, archived_at').eq('user_id', user.id),
-    supabase
-      .from('account_snapshots')
-      .select('account_id, balance, snapshot_date')
-      .eq('user_id', user.id)
-      .order('snapshot_date', { ascending: true }),
+  // The canonical net-worth math lives in lib/derived/networth.ts now —
+  // this page used to compute it inline (snapshots only). The shared
+  // helper additionally fills in live-holdings value for accounts that
+  // don't have a snapshot, while snapshots remain authoritative when
+  // present so previously-verified dashboard numbers don't drift.
+  const [networth, txsRes] = await Promise.all([
+    computeNetWorth(supabase, user.id),
     supabase
       .from('transactions')
       .select('id, kind, amount, category, occurred_on, account:accounts(id, name, currency)')
@@ -87,8 +62,6 @@ export default async function DashboardPage() {
       .limit(10),
   ]);
 
-  type AccountLite = { id: string; type: AccountType; archived_at: string | null };
-  type SnapshotLite = { account_id: string; balance: string; snapshot_date: string };
   type RecentTx = {
     id: string;
     kind: TransactionKind;
@@ -97,61 +70,20 @@ export default async function DashboardPage() {
     occurred_on: string;
     account: { id: string; name: string; currency: string } | null;
   };
-
-  const accounts: AccountLite[] = (accountsRes.data ?? []) as AccountLite[];
-  const snapshots: SnapshotLite[] = (snapshotsRes.data ?? []) as SnapshotLite[];
   const recentTx: RecentTx[] = (txsRes.data ?? []) as unknown as RecentTx[];
 
-  // Group snapshots by account for the time-series math.
-  const byAccount = new Map<string, SnapshotLite[]>();
-  for (const s of snapshots) {
-    const arr = byAccount.get(s.account_id) ?? [];
-    arr.push(s);
-    byAccount.set(s.account_id, arr);
-  }
+  const total = networth.current.total;
+  const liquid = networth.current.liquid;
+  const invested = networth.current.invested;
+  const mostRecent = networth.current.as_of;
+  const delta = networth.previous_month.delta;
 
-  const now = new Date();
-  const today = monthEnd(now.getFullYear(), now.getMonth());
+  const chart: ChartPoint[] = networth.monthly.map((m) => ({
+    month_end: m.month_end,
+    total: m.total,
+  }));
 
-  // Latest snapshot per account, used for the current at-a-glance numbers.
-  const latestByAccount = new Map<string, SnapshotLite>();
-  for (const s of snapshots) {
-    if (s.snapshot_date > today) continue;
-    const prev = latestByAccount.get(s.account_id);
-    if (!prev || s.snapshot_date > prev.snapshot_date) {
-      latestByAccount.set(s.account_id, s);
-    }
-  }
-
-  let total = 0;
-  let liquid = 0;
-  let invested = 0;
-  let mostRecent: string | null = null;
-  for (const a of accounts) {
-    if (a.archived_at) continue;
-    const latest = latestByAccount.get(a.id);
-    if (!latest) continue;
-    const v = Number(latest.balance);
-    total += v;
-    if (LIQUID.has(a.type)) liquid += v;
-    else if (INVESTED.has(a.type)) invested += v;
-    if (!mostRecent || latest.snapshot_date > mostRecent) mostRecent = latest.snapshot_date;
-  }
-
-  const prevMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-  const prevMonthEnd = monthEnd(prevMonthYear, prevMonth);
-  const prevTotal = netWorthAt(prevMonthEnd, byAccount);
-  const delta = total - prevTotal;
-
-  const chart: ChartPoint[] = [];
-  for (let i = 11; i >= 0; i -= 1) {
-    const t = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const me = monthEnd(t.getFullYear(), t.getMonth());
-    chart.push({ month_end: me, total: netWorthAt(me, byAccount) });
-  }
-
-  const hasAnySnapshots = snapshots.length > 0;
+  const hasAnyValue = networth.by_account.some((a) => a.source !== 'none');
   const deltaSign = delta === 0 ? '' : delta > 0 ? '+' : '−';
   const deltaTone = delta === 0 ? 'text-muted' : delta > 0 ? 'text-positive' : 'text-negative';
 
@@ -160,9 +92,9 @@ export default async function DashboardPage() {
       <header className="space-y-2">
         <p className="text-muted text-[11px] tracking-[0.2em] uppercase">Net worth</p>
         <p className="serif-display text-foreground nums text-5xl">
-          {hasAnySnapshots ? fmtCurrency(total) : '$ —'}
+          {hasAnyValue ? fmtCurrency(total) : '$ —'}
         </p>
-        {hasAnySnapshots ? (
+        {hasAnyValue ? (
           <p className={`nums text-xs ${deltaTone}`}>
             {deltaSign} {fmtCurrency(Math.abs(delta))} this month
           </p>
@@ -177,8 +109,8 @@ export default async function DashboardPage() {
       </header>
 
       <section className="grid grid-cols-2 gap-3">
-        <Stat label="Liquid" value={hasAnySnapshots ? fmtCurrency(liquid) : '$ —'} />
-        <Stat label="Invested" value={hasAnySnapshots ? fmtCurrency(invested) : '$ —'} />
+        <Stat label="Liquid" value={hasAnyValue ? fmtCurrency(liquid) : '$ —'} />
+        <Stat label="Invested" value={hasAnyValue ? fmtCurrency(invested) : '$ —'} />
       </section>
 
       <section>

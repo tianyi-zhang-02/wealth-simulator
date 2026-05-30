@@ -24,7 +24,31 @@ const TYPE_LABELS: Record<(typeof ACCOUNT_TYPES)[number], string> = {
 
 type FormMode = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; account: Account };
 
-export default function AccountsClient({ initialAccounts }: { initialAccounts: Account[] }) {
+export type AccountBalanceMap = Record<
+  string,
+  { value: number; source: 'snapshot' | 'holdings' | 'none'; as_of: string | null }
+>;
+
+type Totals = { total: number; liquid: number; invested: number };
+
+function fmtCurrency(n: number, currency: string, withCents = false): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    maximumFractionDigits: withCents ? 2 : 0,
+  }).format(n);
+}
+
+export default function AccountsClient({
+  initialAccounts,
+  balanceMap,
+  totals,
+}: {
+  initialAccounts: Account[];
+  balanceMap: AccountBalanceMap;
+  totals: Totals;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<FormMode>({ kind: 'closed' });
   const [serverError, setServerError] = useState<string | null>(null);
@@ -46,8 +70,23 @@ export default function AccountsClient({ initialAccounts }: { initialAccounts: A
     });
   }
 
+  const hasAnyValue = Object.values(balanceMap).some((b) => b.source !== 'none');
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Total row at the top — sourced from the same canonical helper as
+          the dashboard hero, so the two numbers always agree. */}
+      {hasAnyValue ? (
+        <section className="border-border rounded border p-4">
+          <p className="text-muted text-[10px] tracking-[0.18em] uppercase">Total</p>
+          <p className="serif-display nums mt-1 text-2xl">{fmtCurrency(totals.total, 'USD')}</p>
+          <p className="text-muted nums mt-1 text-[11px]">
+            Liquid {fmtCurrency(totals.liquid, 'USD')} · Invested{' '}
+            {fmtCurrency(totals.invested, 'USD')}
+          </p>
+        </section>
+      ) : null}
+
       <div className="flex items-center justify-between gap-2">
         <p className="text-muted text-xs">
           {initialAccounts.length} account{initialAccounts.length === 1 ? '' : 's'}
@@ -96,41 +135,52 @@ export default function AccountsClient({ initialAccounts }: { initialAccounts: A
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {initialAccounts.map((account) => (
-            <li
-              key={account.id}
-              className="border-border flex items-center justify-between rounded border p-4"
-            >
-              <Link href={`/accounts/${account.id}`} className="min-w-0 flex-1">
-                <p className="truncate text-base underline-offset-4 hover:underline">
-                  {account.name}
-                </p>
-                <p className="text-muted mt-0.5 text-[11px] tracking-wide uppercase">
-                  {TYPE_LABELS[account.type]} · {account.currency}
-                </p>
-              </Link>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setServerError(null);
-                    setMode({ kind: 'edit', account });
-                  }}
-                  className="text-muted hover:text-foreground text-xs"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={pendingArchive}
-                  onClick={() => onArchive(account)}
-                  className="text-muted hover:text-negative text-xs disabled:opacity-50"
-                >
-                  Archive
-                </button>
-              </div>
-            </li>
-          ))}
+          {initialAccounts.map((account) => {
+            const bal = balanceMap[account.id];
+            return (
+              <li
+                key={account.id}
+                className="border-border flex items-center justify-between gap-3 rounded border p-4"
+              >
+                <Link href={`/accounts/${account.id}`} className="min-w-0 flex-1">
+                  <p className="truncate text-base underline-offset-4 hover:underline">
+                    {account.name}
+                  </p>
+                  <p className="text-muted mt-0.5 text-[11px] tracking-wide uppercase">
+                    {TYPE_LABELS[account.type]} · {account.currency}
+                    {bal?.source === 'holdings' ? ' · live holdings' : null}
+                  </p>
+                </Link>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <p className="nums text-sm">
+                    {bal && bal.source !== 'none'
+                      ? fmtCurrency(bal.value, account.currency)
+                      : '—'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setServerError(null);
+                        setMode({ kind: 'edit', account });
+                      }}
+                      className="text-muted hover:text-foreground text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingArchive}
+                      onClick={() => onArchive(account)}
+                      className="text-muted hover:text-negative text-xs disabled:opacity-50"
+                    >
+                      Archive
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
