@@ -96,6 +96,6 @@ Apply the design tokens already in `CLAUDE.md` consistently, and raise the bar f
 
 ---
 
-## Open questions to settle at the start of the polish pass
+## Decisions settled before the polish pass
 
-- **Backup importer — restore-to-DB?** The current `/settings/export` decrypts and previews row counts, but does NOT write back to Supabase. The original spec said "no official importer," but the user asked during Step 11 verification to flag this as a decision point. If we add a real importer, it'd live alongside the decrypt flow on the same page, would need a zod-validated "merge vs replace" choice, and is arguably a new feature (out of polish-pass scope). Default if not raised: leave decrypt-to-view as-is.
+- **Backup importer — out of scope.** `/settings/export` stays decrypt-to-view-only as shipped in `cf7fe3a`. A real DB-restore importer is its own future step with its own verification (zod-validated payload, "merge vs replace" choice, conflict handling on UUID collisions, rollback if any table fails). The polish pass is a cohesion pass — no new features.
