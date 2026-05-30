@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -148,7 +149,16 @@ export default function GoalsClient({
                   <div className="min-w-0">
                     <p className="serif-display text-xl">{goal.name}</p>
                     <p className="text-muted mt-1 text-[11px] tracking-wide uppercase">
-                      {account ? `Linked · ${account.name}` : 'No linked account'}
+                      {account ? (
+                        <Link
+                          href={`/accounts/${account.id}`}
+                          className="hover:text-foreground"
+                        >
+                          Linked · {account.name} ↗
+                        </Link>
+                      ) : (
+                        'No linked account'
+                      )}
                       {goal.target_date ? ` · target ${fmtDateLong(goal.target_date)}` : ''}
                     </p>
                   </div>

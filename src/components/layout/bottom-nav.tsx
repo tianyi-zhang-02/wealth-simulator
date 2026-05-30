@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { ChartIcon, GearIcon, HomeIcon, PlusIcon, WalletIcon } from './nav-icons';
+import { ChartIcon, GearIcon, HomeIcon, WalletIcon } from './nav-icons';
+import PlusMenu from './plus-menu';
 
 type NavItem = {
   href: string;
@@ -39,15 +40,10 @@ export default function BottomNav() {
           <NavTab key={item.href} item={item} active={isActive(pathname, item.href)} />
         ))}
 
-        {/* Raised center "+" — Step 6 will turn this into a modal trigger. */}
+        {/* Raised center "+" opens a sheet with four shortcuts so any "add"
+            surface is reachable from anywhere — see plus-menu.tsx. */}
         <li className="relative flex justify-center">
-          <Link
-            href="/transactions/new"
-            aria-label="Add transaction"
-            className="bg-accent text-background absolute -top-7 flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-1 shadow-black/40 ring-black/20 transition hover:brightness-110 active:scale-95"
-          >
-            <PlusIcon />
-          </Link>
+          <PlusMenu />
         </li>
 
         {RIGHT.map((item) => (

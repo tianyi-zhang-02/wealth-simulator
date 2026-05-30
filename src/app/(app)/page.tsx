@@ -95,9 +95,12 @@ export default async function DashboardPage() {
           {hasAnyValue ? fmtCurrency(total) : '$ —'}
         </p>
         {hasAnyValue ? (
-          <p className={`nums text-xs ${deltaTone}`}>
-            {deltaSign} {fmtCurrency(Math.abs(delta))} this month
-          </p>
+          <Link
+            href="/transactions"
+            className={`nums hover:underline-offset-4 hover:underline text-xs ${deltaTone}`}
+          >
+            {deltaSign} {fmtCurrency(Math.abs(delta))} this month →
+          </Link>
         ) : (
           <p className="text-muted text-xs">
             Add an account and a snapshot to populate this number.{' '}
@@ -109,8 +112,16 @@ export default async function DashboardPage() {
       </header>
 
       <section className="grid grid-cols-2 gap-3">
-        <Stat label="Liquid" value={hasAnyValue ? fmtCurrency(liquid) : '$ —'} />
-        <Stat label="Invested" value={hasAnyValue ? fmtCurrency(invested) : '$ —'} />
+        <Stat
+          label="Liquid"
+          value={hasAnyValue ? fmtCurrency(liquid) : '$ —'}
+          href="/accounts"
+        />
+        <Stat
+          label="Invested"
+          value={hasAnyValue ? fmtCurrency(invested) : '$ —'}
+          href="/portfolio"
+        />
       </section>
 
       <section>
@@ -169,11 +180,14 @@ export default async function DashboardPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, href }: { label: string; value: string; href: string }) {
   return (
-    <div className="border-border rounded border p-4">
-      <p className="text-muted text-[10px] tracking-[0.18em] uppercase">{label}</p>
+    <Link
+      href={href}
+      className="border-border hover:bg-foreground/5 rounded border p-4 transition-colors"
+    >
+      <p className="text-muted text-[10px] tracking-[0.18em] uppercase">{label} →</p>
       <p className="serif-display nums mt-2 text-2xl">{value}</p>
-    </div>
+    </Link>
   );
 }

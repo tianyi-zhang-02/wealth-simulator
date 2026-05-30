@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -50,9 +50,19 @@ export default function AccountsClient({
   totals: Totals;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<FormMode>({ kind: 'closed' });
+  const searchParams = useSearchParams();
+  // Bottom-nav "+" sheet jumps here with ?add=1 to deep-link "Add account."
+  // Initialise the form state from the URL on first render, then the effect
+  // below strips the param so a refresh doesn't keep re-popping the form.
+  const [mode, setMode] = useState<FormMode>(() =>
+    searchParams.get('add') === '1' ? { kind: 'create' } : { kind: 'closed' },
+  );
   const [serverError, setServerError] = useState<string | null>(null);
   const [pendingArchive, startArchive] = useTransition();
+
+  useEffect(() => {
+    if (searchParams.get('add') === '1') router.replace('/accounts');
+  }, [searchParams, router]);
 
   function refresh() {
     router.refresh();

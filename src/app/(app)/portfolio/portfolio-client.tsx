@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -62,12 +63,24 @@ export default function PortfolioClient({
   accounts: Account[];
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<FormMode>({ kind: 'closed' });
+  const searchParams = useSearchParams();
+  // Bottom-nav "+" sheet jumps here with ?add=1 to deep-link "Add holding."
+  // Initialise the form state from the URL on first render; the effect below
+  // strips the param.
+  const [mode, setMode] = useState<FormMode>(() =>
+    searchParams.get('add') === '1' && accounts.length > 0
+      ? { kind: 'create' }
+      : { kind: 'closed' },
+  );
   const [serverError, setServerError] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Record<string, Quote | null>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [pendingDelete, startDelete] = useTransition();
+
+  useEffect(() => {
+    if (searchParams.get('add') === '1') router.replace('/portfolio');
+  }, [searchParams, router]);
 
   const symbols = useMemo(
     () => Array.from(new Set(initialHoldings.map((h) => h.symbol))),
@@ -268,9 +281,12 @@ export default function PortfolioClient({
             return (
               <section key={accountId}>
                 <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <p className="text-muted text-[11px] tracking-[0.18em] uppercase">
-                    {acc?.name ?? 'Unknown account'}
-                  </p>
+                  <Link
+                    href={`/accounts/${accountId}`}
+                    className="text-muted hover:text-foreground text-[11px] tracking-[0.18em] uppercase"
+                  >
+                    {acc?.name ?? 'Unknown account'} ↗
+                  </Link>
                   {subCost > 0 ? (
                     <p
                       className={`nums text-[11px] ${
