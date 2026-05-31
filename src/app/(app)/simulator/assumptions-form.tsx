@@ -11,6 +11,7 @@ import {
 import type {
   Assumptions,
   CareerStage,
+  Lifestyle,
   MajorExpense,
   Person,
   Windfall,
@@ -233,6 +234,81 @@ function TextField({
   );
 }
 
+/**
+ * UI for `assumptions.lifestyle`. Absent state means "use pre-Feature-3
+ * behavior" (= flat, 0% creep). To turn lifestyle creep off after enabling
+ * it, set the mode dropdown to "Off" — that drops the key back to undefined.
+ */
+function LifestyleEditor({
+  value,
+  onChange,
+}: {
+  value: Lifestyle | undefined;
+  onChange: (next: Lifestyle | undefined) => void;
+}) {
+  const mode: 'off' | 'flat' | 'incomeScaled' = value?.mode ?? 'off';
+
+  function setMode(next: 'off' | 'flat' | 'incomeScaled') {
+    if (next === 'off') {
+      onChange(undefined);
+      return;
+    }
+    onChange({
+      mode: next,
+      lifestyleCreepPct: value?.lifestyleCreepPct ?? 1,
+      creepShareOfRaisePct: value?.creepShareOfRaisePct ?? 50,
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-muted text-xs">Mode</span>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value as 'off' | 'flat' | 'incomeScaled')}
+          className="border-border bg-background rounded border px-3 py-2 text-sm"
+        >
+          <option value="off">Off — expenses only track inflation</option>
+          <option value="flat">Flat — grow at inflation + a fixed % per year</option>
+          <option value="incomeScaled">Income-scaled — absorb a % of each raise</option>
+        </select>
+      </label>
+
+      {mode === 'flat' && value ? (
+        <NumField
+          label="Lifestyle creep above inflation"
+          value={value.lifestyleCreepPct}
+          step={0.25}
+          min={-50}
+          max={50}
+          onChange={(n) => onChange({ ...value, lifestyleCreepPct: n })}
+          suffix="%/yr"
+        />
+      ) : null}
+
+      {mode === 'incomeScaled' && value ? (
+        <NumField
+          label="Share of each raise absorbed"
+          value={value.creepShareOfRaisePct}
+          step={5}
+          min={0}
+          max={100}
+          onChange={(n) => onChange({ ...value, creepShareOfRaisePct: n })}
+          suffix="%"
+        />
+      ) : null}
+
+      <p className="text-muted text-[10px]">
+        Lifestyle creep models that spending tends to rise over time. Flat mode
+        adds a steady drift above inflation; income-scaled absorbs a portion of
+        every raise. Off keeps the pre-creep behavior (expenses track inflation
+        only).
+      </p>
+    </div>
+  );
+}
+
 export default function AssumptionsForm({
   value,
   onChange,
@@ -386,6 +462,13 @@ export default function AssumptionsForm({
             suffix="%"
           />
         </div>
+      </Section>
+
+      <Section title="Lifestyle creep" defaultOpen={false}>
+        <LifestyleEditor
+          value={value.lifestyle}
+          onChange={(next) => update({ lifestyle: next })}
+        />
       </Section>
 
       <Section title="Investment & inflation">
