@@ -40,6 +40,27 @@ function Section({
   );
 }
 
+/**
+ * Numeric input that fixes the "type-and-prepend-0" UX bug:
+ *
+ *   - When the underlying value is `0`, the input renders empty with a `0`
+ *     placeholder. Typing puts characters into an empty field instead of
+ *     prepending to a literal "0".
+ *   - During editing, we keep a local string buffer so the user can clear,
+ *     type "-", or type "1." mid-decimal without the parent forcing the
+ *     value back to 0 on every keystroke.
+ *   - Click/focus selects the entire value so non-zero fields are easy to
+ *     replace too.
+ *   - On blur, an empty or unparseable buffer propagates as `0` and the
+ *     local buffer is released so external prop updates (e.g. the
+ *     "Use my actual data" prefill) take over again.
+ *
+ * The pattern is deliberately controlled-but-tolerant: while the user is
+ * actively editing, the local buffer wins; outside of editing, the prop
+ * value is the source of truth. This avoids the React 19
+ * `set-state-in-effect` lint and the fight-the-cursor bugs that come with
+ * naive `useEffect`-based re-syncing.
+ */
 function NumField({
   label,
   value,
@@ -57,6 +78,12 @@ function NumField({
   onChange: (n: number) => void;
   suffix?: string;
 }) {
+  // null = "not currently editing; derive display from prop".
+  // string = "user is editing; use this string verbatim".
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const display = draft !== null ? draft : value === 0 ? '' : String(value);
+
   return (
     <label className="flex flex-col gap-1">
       <span className="text-muted text-xs">{label}</span>
@@ -67,10 +94,30 @@ function NumField({
           step={step}
           min={min}
           max={max}
-          value={value}
+          value={display}
+          placeholder="0"
+          onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => {
-            const n = e.target.valueAsNumber;
-            onChange(Number.isFinite(n) ? n : 0);
+            const next = e.target.value;
+            setDraft(next);
+            // Only propagate when the buffer parses to a finite number.
+            // Empty / "-" / "1." stay local until blur — propagating those
+            // as 0 would clobber what the user is in the middle of typing.
+            if (next.trim() === '') return;
+            const n = Number(next);
+            if (Number.isFinite(n)) onChange(n);
+          }}
+          onBlur={() => {
+            // Release the buffer back to prop-derived display. If the user
+            // left it empty or garbage, fall back to 0 so the form's number
+            // shape stays valid.
+            if (draft !== null) {
+              const trimmed = draft.trim();
+              if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
+                onChange(0);
+              }
+              setDraft(null);
+            }
           }}
           className="border-border focus:border-foreground nums w-full rounded border bg-transparent px-3 py-2 text-base outline-none"
         />
