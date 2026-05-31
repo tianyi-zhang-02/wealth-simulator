@@ -97,16 +97,41 @@ export type GoalSeekResult =
 export function netWorthAtAge(a: Assumptions, age: number): number {
   if (a.people.length === 0) return NaN;
   const primary = a.people[0]!;
-  const targetYear = primary.birthYear + age;
-  if (targetYear < a.horizonStartYear) return a.startingNetWorth;
-  // If the user's horizon is too short, extend it just for this run. We
-  // build a shallow copy with a stretched horizonEndYear so the engine
-  // produces a row at targetYear without disturbing the user's saved data.
-  const horizonEndYear = Math.max(a.horizonEndYear, targetYear);
+  // Bisection over the age lever passes fractional ages (e.g. 51.5) but the
+  // engine produces one row per integer year. To keep this function
+  // continuous — so bisection converges to a meaningful fractional age
+  // ("you'd hit the target 1.7 years later") rather than snapping to the
+  // next integer year — we linearly interpolate net worth between the
+  // floor and ceil years bracketing the exact target.
+  const exactYear = primary.birthYear + age;
+  if (exactYear <= a.horizonStartYear - 1) return a.startingNetWorth;
+
+  const floorYear = Math.floor(exactYear);
+  const ceilYear = Math.ceil(exactYear);
+  const frac = exactYear - floorYear; // 0 when exact, in [0,1) otherwise
+
+  // Internally extend the horizon to cover ceilYear without mutating `a`.
+  const horizonEndYear = Math.max(a.horizonEndYear, ceilYear);
   const stretched: Assumptions = a.horizonEndYear === horizonEndYear ? a : { ...a, horizonEndYear };
   const { rows } = simulate(stretched);
-  const row = rows.find((r) => r.year === targetYear);
-  return row ? row.netWorth : NaN;
+
+  const floorRow = rows.find((r) => r.year === floorYear);
+  const ceilRow = rows.find((r) => r.year === ceilYear);
+
+  // floorYear sits one year before horizonStartYear → treat that endpoint
+  // as the starting net worth (no row was simulated for it).
+  const floorValue = floorRow
+    ? floorRow.netWorth
+    : floorYear < a.horizonStartYear
+      ? a.startingNetWorth
+      : NaN;
+  const ceilValue = ceilRow ? ceilRow.netWorth : NaN;
+
+  if (!Number.isFinite(floorValue) && !Number.isFinite(ceilValue)) return NaN;
+  if (!Number.isFinite(floorValue)) return ceilValue;
+  if (!Number.isFinite(ceilValue)) return floorValue;
+
+  return floorValue * (1 - frac) + ceilValue * frac;
 }
 
 /**

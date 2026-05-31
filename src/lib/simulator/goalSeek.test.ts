@@ -119,6 +119,15 @@ describe('solveGoalSeek — round trip for each lever', () => {
   }
 
   function assertRoundTrip(label: string, projected: number, target: number): void {
+    // Defensive: NaN slips through `drift > 5_000` because NaN > x is false
+    // for every x. Make the NaN case an explicit failure so a regression
+    // in netWorthAtAge can't silently masquerade as success.
+    if (!Number.isFinite(projected)) {
+      throw new Error(
+        `${label}: re-simulating with the solved value gave a non-finite ` +
+          `projection (${String(projected)}) — netWorthAtAge regression?`,
+      );
+    }
     // $5k tolerance — well above bisection's $1k stop tolerance, well
     // below any number that would change the user's interpretation.
     const drift = Math.abs(projected - target);
