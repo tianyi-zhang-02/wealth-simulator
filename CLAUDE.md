@@ -181,6 +181,25 @@ At the ⚠️ steps, finish the work, commit, push, then explicitly tell the use
 
 ---
 
+## Every PR Updates Its Own Docs
+
+Phase 3 (docs + self-hosting) established this rule and it now applies to every subsequent PR. **A PR that changes behavior MUST update the documentation that describes that behavior, in the same PR.** Not as a follow-up. Not "we'll backfill later." The same PR.
+
+Required checks before opening any PR:
+
+- **`CHANGELOG.md`** — add an entry under `[Unreleased]` (or under the milestone the PR is part of). One bullet per user-visible change. Include the PR number once it's open. Group entries by **Added / Changed / Fixed / Security / Removed**.
+- **`README.md`** — if the PR adds, removes, or visibly changes a feature, update the **Features** section. If it changes architecture, update the **Architecture** section. If it changes env vars, update the env-var table.
+- **`.env.example`** — if the PR introduces a new env var, add it with a comment explaining what it's for and where the value comes from. If it renames or removes one, do the same. Self-hosters use this file as ground truth.
+- **`SELF_HOSTING_GUIDE.md`** — if the PR changes any of: setup steps, Supabase schema, required migrations, required env vars, Auth configuration, or troubleshooting-worthy failure modes — update it.
+- **`supabase/migrations/`** — if the PR adds a migration, also update `supabase/migrations/README.md` (apply order + what the migration does) AND fold the same SQL into `supabase/schema.sql` so a fresh setup gets the new state in one run.
+- **Spec files** (`*_SPEC.md`) — if the PR completes or amends a spec, mark the relevant section ✅ or note the deviation. Don't let specs drift from reality.
+
+For security-sensitive PRs (the ⚠️ ones in the build order): also update the **Known security debt** section of CLAUDE.md if a debt item closes or a new one is discovered.
+
+**Verification before pushing:** before `git push`, glance at the diff. If you touched `src/` and didn't touch any of the docs above, ask yourself whether you should have. The answer is almost always yes.
+
+---
+
 ## Testing Before "Done"
 
 A feature is not done until:
