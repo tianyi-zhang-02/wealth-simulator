@@ -31,26 +31,26 @@ import type {
  *      balance, BEFORE this year's contributions, windfalls, and any
  *      shortfall draws. New money therefore doesn't compound within its
  *      first year.
- *   6. **Savings-rate vs expenses cash flow.**
- *      - intendedContribution = afterTaxIncome × savingsRate%
- *      - consumable = afterTaxIncome − intendedContribution
- *      - If expenses ≤ consumable: `saved = intendedContribution +
- *        extraAnnualContribution`. The leftover `consumable − expenses`
- *        is treated as discretionary spending (lifestyle absorption),
- *        NOT extra savings.
- *      - If expenses > consumable: `shortfall = expenses − consumable`
- *        and `saved = intendedContribution + extraAnnualContribution −
- *        shortfall`, which can go negative — that's a drawdown from the
- *        investment balance.
- *      - Windfalls always go straight to the balance, untaxed.
+ *   6. **Derived-savings cash flow.** Savings is not a knob — it falls out
+ *      of income, tax, and spending:
+ *        `afterTaxIncome = grossIncome × (1 − effectiveTaxRatePct/100)`
+ *        `saved = afterTaxIncome − expenses + extraAnnualContribution`
+ *      - `saved` can go negative — that's a drawdown from the invested
+ *        balance (spending exceeds after-tax income).
+ *      - Windfalls always go straight to the balance, untaxed (separate
+ *        from `saved`).
+ *      - `grossIncome` includes salary + bonus + equity (RSUs) across all
+ *        people; see `personSalaryForYear`. All of it is taxed at the flat
+ *        effective rate (RSUs vest as ordinary income).
  *      - `extraAnnualContribution` is the additional savings dollars used
- *        by the goal-seek "save $X/mo more" lever (Feature 4). Defaults
- *        to 0 when absent. It sits on the contribution side of the ledger
- *        — it stacks with the savings rate, it does NOT change the
- *        expense baseline.
- *   6a. **Lifestyle creep (interaction with #6).**
- *      Per `assumptions.lifestyle.mode`:
- *      - Absent OR `flat` with `lifestyleCreepPct=0`: pre-creep behavior.
+ *        by the goal-seek "save $X/mo more" lever. Defaults to 0. In this
+ *        derived model it is mathematically identical to reducing expenses
+ *        by the same amount.
+ *      - The **implied savings rate** (`saved / afterTaxIncome`) is a
+ *        derived OUTPUT the UI can display; it is not an input.
+ *   6a. **Lifestyle creep.** Only moves the expense side (which then
+ *      directly reduces `saved` per #6). Per `assumptions.lifestyle.mode`:
+ *      - Absent OR `flat` with `lifestyleCreepPct=0`: no creep.
  *        `expenses_i = recurringAnnualExpenses × (1+infl)^(i+1) + major[i]`.
  *      - `flat`: expenses grow at inflation AND a lifestyle drift rate.
  *        `expenses_i = recurringAnnualExpenses
@@ -65,15 +65,7 @@ import type {
  *                        + max(0, afterTax_i+1 − afterTax_i)
  *                          × creepShareOfRaisePct/100`
  *        `expenses_i   = baseline_i + major[i]`.
- *      Interaction with the savings-rate cap:
- *      - The savings rate is still the ceiling on the user's intended
- *        savings (contribution side of the ledger). Lifestyle creep only
- *        moves the expense side. They cannot double-count because they
- *        act on different sides of the cash-flow equation.
- *      - The leftover `consumable − expenses` (the "lifestyle absorption"
- *        residual described in #6) still exists. In `incomeScaled` mode it
- *        naturally shrinks toward 0 as creep absorbs more of each raise
- *        into the baseline. That is intentional, not a double-count.
+ *      A pay cut is clamped (`max(0, …)`) so lifestyle is sticky downward.
  *   7. **Inflation — coherent end-of-year convention.**
  *      Every value in row i is interpreted as T=i+1 nominal
  *      (end-of-year-i). Concretely:
@@ -210,16 +202,13 @@ function simulateScenario(a: Assumptions, returnPct: number): YearRow[] {
     let windfalls = 0;
     for (const w of a.windfalls) if (w.year === year) windfalls += w.amount;
 
-    // 4. Cash-flow logic (see assumption #6).
-    const intendedContribution = afterTaxIncome * (a.annualSavingsRatePct / 100);
-    const consumable = afterTaxIncome - intendedContribution;
-    let saved: number;
-    if (expenses <= consumable) {
-      saved = intendedContribution + extraContribution;
-    } else {
-      const shortfall = expenses - consumable;
-      saved = intendedContribution + extraContribution - shortfall; // can be negative
-    }
+    // 4. Cash-flow (see assumption #6): savings is DERIVED — what you don't
+    // pay in tax or spend, you save. No separate savings-rate knob.
+    //   saved = afterTaxIncome − expenses + extraContribution
+    // Can go negative — that's a drawdown from the invested balance.
+    // `extraContribution` is the goal-seek "save $X/mo more" lever; it's
+    // additive and defaults to 0.
+    const saved = afterTaxIncome - expenses + extraContribution;
 
     // 5. Start-of-year growth, then end-of-year adjustments.
     const investmentGrowth = balance * (returnPct / 100);
@@ -269,7 +258,11 @@ function personSalaryForYear(person: Person, year: number): number {
   const yearsIntoStage = age - active.startAge;
   const base = active.baseSalary * Math.pow(1 + active.annualRaisePct / 100, yearsIntoStage);
   const bonus = base * ((active.bonusPct ?? 0) / 100);
-  return base + bonus;
+  // Equity / RSU comp is added flat per year of the stage (not compounded by
+  // annualRaisePct — grants refresh lumpily rather than "raising"). Treated
+  // as ordinary taxable income, like salary, since RSUs vest as W-2 income.
+  const equity = active.annualEquity ?? 0;
+  return base + bonus + equity;
 }
 
 /**

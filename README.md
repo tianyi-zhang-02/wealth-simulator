@@ -13,7 +13,9 @@ Everything runs in the browser. **There is no backend, no database, no account, 
 ## Features
 
 - **Year-by-year projection** from a pure, deterministic engine (documented inflation convention, low/mid/high return bands).
-- **Careers** — multiple people, multiple career stages, with a searchable role library (legal + SWE/MLE) as starting estimates.
+- **Careers with equity** — multiple people and career stages, each with base salary, bonus, and **annual equity / RSU comp** (which dominates total pay for big-tech and AI-lab roles). A browsable, grouped, searchable **role library** (Legal · Software/ML) provides illustrative starting numbers.
+- **Derived savings** — no savings-rate knob: each year you save whatever's left of after-tax income after spending. The implied savings rate is shown as an output.
+- **Tax presets** — a rough state + federal effective-rate estimate (all 50 states + DC) seeds the single tax rate, fully editable. Illustrative, not tax advice; carries a "last reviewed" date.
 - **Windfalls & major expenses** — one-time or recurring, plotted as markers on the chart.
 - **Lifestyle creep** — model spending rising over time (flat drift above inflation, or absorbing a share of each raise).
 - **Goal-seek** — set a target ("$5M by 50") and the simulator solves four levers (save more, higher return, spend less, more time) by bisection over the engine.

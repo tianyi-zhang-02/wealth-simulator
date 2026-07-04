@@ -186,6 +186,15 @@ export default function SimulatorClient() {
   const firstNominal = result?.rows[0]?.netWorth ?? 0;
   const totalGrowth = firstNominal > 0 ? (lastNominal / firstNominal - 1) * 100 : 0;
 
+  // Savings is derived (after-tax income − spending); surface the implied
+  // rate for the first year so the number the old "savings rate" input used
+  // to hold is still visible — just as an output now.
+  const firstRow = result?.rows[0];
+  const impliedSavingsRate =
+    firstRow && firstRow.afterTaxIncome > 0
+      ? (firstRow.saved / firstRow.afterTaxIncome) * 100
+      : null;
+
   // Markers identical to the authed simulator: a dot per windfall and
   // per active major-expense year on the base line.
   const markers = useMemo<Marker[]>(() => {
@@ -357,6 +366,12 @@ export default function SimulatorClient() {
                   {fmtCurrency0(lastReal)} in today&apos;s dollars · {fmtPct(totalGrowth)} over
                   horizon
                 </p>
+                {impliedSavingsRate !== null ? (
+                  <p className="text-muted nums mt-1 text-[11px]">
+                    Implied savings rate (year 1): {impliedSavingsRate.toFixed(0)}% of after-tax
+                    income
+                  </p>
+                ) : null}
               </section>
 
               {/* Chart + nominal/real toggle. */}

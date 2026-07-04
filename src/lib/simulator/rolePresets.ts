@@ -1,51 +1,56 @@
 /**
  * Role-level starting points for the career-stage builder. Two tracks for
  * now: `legal` (BigLaw → in-house → government) and `swe` (IC SWE → EM →
- * MLE/research). Each entry is a single-role row that fills the three
- * salary-curve fields on a career stage; everything stays editable after
- * the user picks one.
+ * MLE/research). Each entry fills the salary-curve fields on a career
+ * stage; everything stays editable after the user picks one.
  *
- * ## Last reviewed: 2026-05
+ * ## Last reviewed: 2026-07
  *
  * These numbers are ROUGH ILLUSTRATIVE DEFAULTS, not market data and not
  * sourced from a specific survey. They reflect a back-of-envelope read of
- * publicly-discussed US compensation ranges (Cravath-scale BigLaw,
- * Bay Area / NYC big-tech ICs, federal GS / public-interest pay) as of
- * the date above. The point is to give a user a starting anchor so they
- * don't type into a blank field — NOT to assert "this is what the role
- * pays." Anyone using this for actual planning should override every
- * number with their own real offer / W-2 figure.
+ * publicly-discussed US total compensation as of the date above. The point
+ * is to give a starting anchor so nobody types into a blank field — NOT to
+ * assert "this is what the role pays." Override every number with your own
+ * real offer / W-2 figure.
  *
- * The UI accompanying this file MUST surface that caveat ("Starting
- * estimates — replace with your own figures.") so a casual user doesn't
- * walk away thinking these were derived from data.
- *
- * Bonus is modeled as a percent of base salary (matches `CareerStage.bonusPct`
- * in the engine), and `annualRaisePct` is the within-stage YoY raise (nominal,
- * before inflation). To model a promotion to a different role, add a second
- * career stage with that role's numbers and a higher `startAge`.
+ * Comp is split three ways, matching the engine:
+ *   - `baseSalary`   — annual base, pre-bonus/equity, pre-tax.
+ *   - `bonusPct`     — cash bonus as a % of base.
+ *   - `annualEquity` — annual equity / RSU grant value in dollars. For
+ *     big-tech and frontier-AI roles this is often the LARGEST component —
+ *     that's the whole reason it's modeled. Treated as ordinary taxable
+ *     income (RSUs vest as W-2 income).
+ *   - `annualRaisePct` — within-stage YoY raise on base (nominal). To model
+ *     a promotion, add a second stage with a higher `startAge`.
  */
 
 export type RoleTrack = 'legal' | 'swe';
 
+export const TRACK_LABELS: Record<RoleTrack, string> = {
+  legal: 'Legal',
+  swe: 'Software / ML',
+};
+
 export type RolePreset = {
-  /** Stable id for React keys + analytics. */
+  /** Stable id for React keys. */
   id: string;
   track: RoleTrack;
-  /** Human-readable title shown in the search results. */
+  /** Human-readable title shown in the picker. */
   title: string;
-  /** Annual base salary in USD (pre-bonus, pre-tax). */
+  /** Annual base salary in USD (pre-bonus, pre-equity, pre-tax). */
   baseSalary: number;
-  /** Within-stage annual raise, nominal %. */
+  /** Within-stage annual raise on base, nominal %. */
   annualRaisePct: number;
   /** Bonus as % of base. */
   bonusPct: number;
-  /** One-line context shown under the title. Plain language, no figures. */
+  /** Annual equity / RSU grant value in USD. 0 for cash-only roles. */
+  annualEquity: number;
+  /** One-line context shown under the title. Plain language. */
   notes: string;
 };
 
 export const ROLE_PRESETS: readonly RolePreset[] = [
-  // ---------------- Legal ----------------
+  // ---------------- Legal (mostly cash comp) ----------------
   {
     id: 'biglaw-assoc-y1',
     track: 'legal',
@@ -53,7 +58,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 225_000,
     annualRaisePct: 0,
     bonusPct: 25,
-    notes: 'Lockstep first-year base; raise is the year-to-year class-year bump (modeled as 0 since stages shift on promotion).',
+    annualEquity: 0,
+    notes: 'Lockstep first-year base at top-paying firms; cash bonus on top.',
   },
   {
     id: 'biglaw-assoc-mid',
@@ -62,6 +68,7 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 280_000,
     annualRaisePct: 8,
     bonusPct: 35,
+    annualEquity: 0,
     notes: 'Mid-class-year lockstep; bonus scales with class.',
   },
   {
@@ -71,6 +78,7 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 390_000,
     annualRaisePct: 5,
     bonusPct: 45,
+    annualEquity: 0,
     notes: 'Top-of-scale associates at top-paying firms.',
   },
   {
@@ -80,7 +88,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 450_000,
     annualRaisePct: 3,
     bonusPct: 40,
-    notes: 'Non-partner-track senior role; flatter raise curve.',
+    annualEquity: 0,
+    notes: 'Non-partner-track senior role; flatter curve.',
   },
   {
     id: 'biglaw-partner',
@@ -89,7 +98,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 1_000_000,
     annualRaisePct: 5,
     bonusPct: 100,
-    notes: 'Highly variable across firms; this is a midpoint guess. Real number depends on firm + book of business.',
+    annualEquity: 0,
+    notes: 'Highly variable; midpoint guess. Real number depends on firm + book of business.',
   },
   {
     id: 'inhouse-counsel',
@@ -98,7 +108,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 220_000,
     annualRaisePct: 4,
     bonusPct: 15,
-    notes: 'Corporate legal department, mid-career.',
+    annualEquity: 20_000,
+    notes: 'Corporate legal, mid-career; some equity at tech companies.',
   },
   {
     id: 'inhouse-senior',
@@ -107,7 +118,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 320_000,
     annualRaisePct: 4,
     bonusPct: 25,
-    notes: 'Director-level in-house; often equity at tech companies.',
+    annualEquity: 60_000,
+    notes: 'Director-level in-house; meaningful equity at tech companies.',
   },
   {
     id: 'general-counsel',
@@ -116,7 +128,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 500_000,
     annualRaisePct: 3,
     bonusPct: 50,
-    notes: 'Chief legal officer at a mid-size company; equity grants not modeled.',
+    annualEquity: 150_000,
+    notes: 'Chief legal officer at a mid-size company; equity a real slice of comp.',
   },
   {
     id: 'gov-attorney',
@@ -125,7 +138,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 130_000,
     annualRaisePct: 3,
     bonusPct: 0,
-    notes: 'Mid-career GS-13 to GS-14 federal; no bonus typical.',
+    annualEquity: 0,
+    notes: 'Mid-career GS-13 to GS-14 federal; no bonus/equity typical.',
   },
   {
     id: 'public-interest',
@@ -134,10 +148,11 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 75_000,
     annualRaisePct: 3,
     bonusPct: 0,
+    annualEquity: 0,
     notes: 'Nonprofit / legal-aid / DA office entry-mid level.',
   },
 
-  // ---------------- SWE / MLE ----------------
+  // ---------------- Software / ML (equity-heavy) ----------------
   {
     id: 'swe-junior',
     track: 'swe',
@@ -145,7 +160,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 145_000,
     annualRaisePct: 6,
     bonusPct: 15,
-    notes: 'New-grad big-tech; total comp heavier on RSUs which are not modeled.',
+    annualEquity: 40_000,
+    notes: 'New-grad big-tech; equity already a big chunk of total comp.',
   },
   {
     id: 'swe-mid',
@@ -154,7 +170,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 180_000,
     annualRaisePct: 5,
     bonusPct: 20,
-    notes: '2–4 yrs experience at a top-paying tech employer.',
+    annualEquity: 90_000,
+    notes: '2–4 yrs at a top-paying tech employer; equity ≈ half of base.',
   },
   {
     id: 'swe-senior',
@@ -163,7 +180,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 240_000,
     annualRaisePct: 4,
     bonusPct: 25,
-    notes: '5–8 yrs experience; tech-company senior IC.',
+    annualEquity: 180_000,
+    notes: '5–8 yrs; equity often rivals base at big tech.',
   },
   {
     id: 'swe-staff',
@@ -172,7 +190,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 320_000,
     annualRaisePct: 4,
     bonusPct: 30,
-    notes: 'Senior IC at big tech; total comp dominated by equity in practice.',
+    annualEquity: 350_000,
+    notes: 'Senior IC; total comp is equity-dominated.',
   },
   {
     id: 'swe-principal',
@@ -181,7 +200,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 420_000,
     annualRaisePct: 4,
     bonusPct: 35,
-    notes: 'Top IC track; rare and highly variable.',
+    annualEquity: 600_000,
+    notes: 'Top IC track; rare and highly variable, mostly equity.',
   },
   {
     id: 'em-manager',
@@ -190,6 +210,7 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 260_000,
     annualRaisePct: 5,
     bonusPct: 25,
+    annualEquity: 200_000,
     notes: 'First-line manager at a top-paying tech employer.',
   },
   {
@@ -199,7 +220,8 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 340_000,
     annualRaisePct: 4,
     bonusPct: 30,
-    notes: 'Multi-team or director-level org.',
+    annualEquity: 400_000,
+    notes: 'Multi-team or director-level org; equity-heavy.',
   },
   {
     id: 'mle-mid',
@@ -208,6 +230,7 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 200_000,
     annualRaisePct: 6,
     bonusPct: 20,
+    annualEquity: 120_000,
     notes: 'Applied ML/MLE at a big-tech company.',
   },
   {
@@ -217,40 +240,43 @@ export const ROLE_PRESETS: readonly RolePreset[] = [
     baseSalary: 280_000,
     annualRaisePct: 5,
     bonusPct: 25,
-    notes: 'Senior applied-ML IC.',
+    annualEquity: 250_000,
+    notes: 'Senior applied-ML IC; equity a large share.',
   },
   {
     id: 'res-engineer',
     track: 'swe',
     title: 'Research Engineer (frontier labs)',
-    baseSalary: 280_000,
+    baseSalary: 300_000,
     annualRaisePct: 5,
-    bonusPct: 30,
-    notes: 'AI research lab; total comp heavily driven by equity grants not modeled here.',
+    bonusPct: 15,
+    annualEquity: 500_000,
+    notes: 'AI lab; comp is dominated by equity — the "heavily on stock" case.',
   },
   {
     id: 'res-scientist',
     track: 'swe',
     title: 'Research Scientist (PhD, frontier labs)',
-    baseSalary: 320_000,
+    baseSalary: 350_000,
     annualRaisePct: 4,
-    bonusPct: 35,
-    notes: 'Sr. research scientist at an AI lab; numbers very compressed at the top vs. real practice.',
+    bonusPct: 15,
+    annualEquity: 800_000,
+    notes: 'Sr. research scientist at an AI lab; equity often dwarfs cash.',
   },
-] as const;
+];
 
 /**
- * Case-insensitive search across title + track + notes. Empty / whitespace
- * query returns all roles. Caller is responsible for picking display order.
+ * Case-insensitive search across title + track label + notes. Empty query
+ * returns all roles. Caller is responsible for display order / grouping.
  */
 export function searchRolePresets(query: string): RolePreset[] {
   const q = query.trim().toLowerCase();
   if (q.length === 0) return [...ROLE_PRESETS];
-  return ROLE_PRESETS.filter((r) => {
-    return (
+  return ROLE_PRESETS.filter(
+    (r) =>
       r.title.toLowerCase().includes(q) ||
       r.track.toLowerCase().includes(q) ||
-      r.notes.toLowerCase().includes(q)
-    );
-  });
+      TRACK_LABELS[r.track].toLowerCase().includes(q) ||
+      r.notes.toLowerCase().includes(q),
+  );
 }

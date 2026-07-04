@@ -6,8 +6,15 @@ import { CAREER_PRESETS } from '@/lib/simulator/career-presets';
 import {
   ROLE_PRESETS,
   searchRolePresets,
+  TRACK_LABELS,
   type RolePreset,
+  type RoleTrack,
 } from '@/lib/simulator/rolePresets';
+import {
+  estimateEffectiveTaxRate,
+  STATE_TAXES,
+  TAX_LAST_REVIEWED,
+} from '@/lib/simulator/tax-presets';
 import type {
   Assumptions,
   CareerStage,
@@ -146,16 +153,21 @@ function NumField({
  * should never be able to tell, after editing, that someone "is" still
  * the BigLaw associate preset.
  */
-function RoleSearchBox({
-  onPick,
-}: {
-  onPick: (preset: RolePreset) => void;
-}) {
+function RoleSearchBox({ onPick }: { onPick: (preset: RolePreset) => void }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
-  // Memoized so typing doesn't repeatedly re-filter on identical inputs.
-  const results = useMemo(() => searchRolePresets(query).slice(0, 8), [query]);
+  // Group the (optionally filtered) roles by track so an empty query is a
+  // browsable, categorized list — not just a search box.
+  const groups = useMemo<Array<[RoleTrack, RolePreset[]]>>(() => {
+    const byTrack = new Map<RoleTrack, RolePreset[]>();
+    for (const r of searchRolePresets(query)) {
+      const arr = byTrack.get(r.track) ?? [];
+      arr.push(r);
+      byTrack.set(r.track, arr);
+    }
+    return [...byTrack.entries()];
+  }, [query]);
 
   return (
     <div className="relative">
@@ -167,40 +179,57 @@ function RoleSearchBox({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        // Delay blur close so an onClick on a result can fire first.
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-        placeholder={`Search ${ROLE_PRESETS.length} starting roles (e.g. "biglaw", "L5", "MLE")…`}
+        // Delay blur close so an onMouseDown on a result can fire first.
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        placeholder={`Browse or search ${ROLE_PRESETS.length} roles (e.g. "biglaw", "L5", "MLE")…`}
         className="border-border focus:border-foreground placeholder:text-muted/50 w-full rounded border bg-transparent px-3 py-2 text-xs outline-none"
       />
-      {open && results.length > 0 ? (
-        <ul
-          className="border-border bg-background absolute top-full right-0 left-0 z-10 mt-1 max-h-64 overflow-auto rounded border shadow-lg"
+      {open ? (
+        <div
+          className="border-border bg-background absolute top-full right-0 left-0 z-10 mt-1 max-h-80 overflow-auto rounded border shadow-lg"
           role="listbox"
         >
-          {results.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                // onMouseDown fires before the input's onBlur, so the pick
-                // lands before the dropdown collapses.
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onPick(r);
-                  setQuery('');
-                  setOpen(false);
-                }}
-                className="hover:bg-foreground/5 flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left"
-              >
-                <span className="text-foreground text-xs">{r.title}</span>
-                <span className="text-muted text-[10px]">
-                  {r.track === 'legal' ? 'Legal' : 'SWE / MLE'} · ${r.baseSalary.toLocaleString()}
-                  /yr base · +{r.annualRaisePct}% raise · {r.bonusPct}% bonus
-                </span>
-                {r.notes ? <span className="text-muted text-[10px] italic">{r.notes}</span> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
+          {groups.length === 0 ? (
+            <p className="text-muted px-3 py-3 text-[11px]">No roles match “{query}”.</p>
+          ) : (
+            groups.map(([track, roles]) => (
+              <div key={track}>
+                <p className="text-muted bg-background/95 sticky top-0 px-3 py-1.5 text-[10px] font-medium tracking-[0.16em] uppercase backdrop-blur">
+                  {TRACK_LABELS[track]}
+                </p>
+                <ul>
+                  {roles.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        // onMouseDown fires before the input's onBlur.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          onPick(r);
+                          setQuery('');
+                          setOpen(false);
+                        }}
+                        className="hover:bg-foreground/5 flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left"
+                      >
+                        <span className="text-foreground text-xs">{r.title}</span>
+                        <span className="text-muted nums text-[10px]">
+                          ${r.baseSalary.toLocaleString()} base · +{r.annualRaisePct}% ·{' '}
+                          {r.bonusPct}% bonus
+                          {r.annualEquity > 0
+                            ? ` · $${r.annualEquity.toLocaleString()} equity`
+                            : ''}
+                        </span>
+                        {r.notes ? (
+                          <span className="text-muted text-[10px] italic">{r.notes}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
       ) : null}
     </div>
   );
@@ -300,10 +329,85 @@ function LifestyleEditor({
       ) : null}
 
       <p className="text-muted text-[10px]">
-        Lifestyle creep models that spending tends to rise over time. Flat mode
-        adds a steady drift above inflation; income-scaled absorbs a portion of
-        every raise. Off keeps the pre-creep behavior (expenses track inflation
-        only).
+        Lifestyle creep models that spending tends to rise over time. Flat mode adds a steady drift
+        above inflation; income-scaled absorbs a portion of every raise. Off keeps the pre-creep
+        behavior (expenses track inflation only).
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Seeds the single `effectiveTaxRatePct` from a rough state + federal
+ * estimate. Illustrative only — see `tax-presets.ts`. The user applies the
+ * estimate, then fine-tunes the rate field directly.
+ */
+function TaxEstimator({
+  currentRate,
+  onApply,
+}: {
+  currentRate: number;
+  onApply: (rate: number) => void;
+}) {
+  const [stateCode, setStateCode] = useState('CA');
+  const [income, setIncome] = useState('250000');
+  const incomeNum = Number(income);
+  const estimate = estimateEffectiveTaxRate(stateCode, Number.isFinite(incomeNum) ? incomeNum : 0);
+
+  return (
+    <div className="border-border flex flex-col gap-2 rounded border p-3">
+      <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+        Estimate from state + income
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-muted text-xs">State</span>
+          <select
+            value={stateCode}
+            onChange={(e) => setStateCode(e.target.value)}
+            className="border-border bg-background rounded border px-2 py-2 text-sm"
+          >
+            {STATE_TAXES.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-muted text-xs">Gross household income</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              step={10000}
+              min={0}
+              value={income}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setIncome(e.target.value)}
+              className="border-border focus:border-foreground nums w-full rounded border bg-transparent px-2 py-2 text-sm outline-none"
+            />
+            <span className="text-muted text-xs">$</span>
+          </div>
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm">
+          Estimated effective ≈ <span className="nums font-medium">{estimate}%</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => onApply(estimate)}
+          disabled={estimate === currentRate}
+          className="bg-foreground text-background rounded px-3 py-1 text-xs font-medium disabled:opacity-40"
+        >
+          Apply
+        </button>
+      </div>
+      <p className="text-muted text-[10px] italic">
+        Rough estimate, not tax advice — blends a federal effective rate (by income) with a state
+        rate; ignores filing status, deductions, credits, FICA, and local/city taxes. Last reviewed{' '}
+        {TAX_LAST_REVIEWED}. Adjust the rate below to fine-tune.
       </p>
     </div>
   );
@@ -379,7 +483,10 @@ export default function AssumptionsForm({
   function applyPreset(personId: string, presetId: string) {
     const preset = CAREER_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
-    setStages(personId, preset.stages.map((s) => ({ ...s })));
+    setStages(
+      personId,
+      preset.stages.map((s) => ({ ...s })),
+    );
   }
 
   // ----------------- Windfalls helpers -----------------
@@ -441,19 +548,14 @@ export default function AssumptionsForm({
         </div>
       </Section>
 
-      <Section title="Cash flow">
-        <div className="grid grid-cols-2 gap-3">
-          <NumField
-            label="Annual savings rate"
-            value={value.annualSavingsRatePct}
-            step={1}
-            min={0}
-            max={100}
-            onChange={(n) => update({ annualSavingsRatePct: n })}
-            suffix="%"
+      <Section title="Taxes">
+        <div className="flex flex-col gap-3">
+          <TaxEstimator
+            currentRate={value.effectiveTaxRatePct}
+            onApply={(rate) => update({ effectiveTaxRatePct: rate })}
           />
           <NumField
-            label="Effective tax rate"
+            label="Effective tax rate (applied to all income)"
             value={value.effectiveTaxRatePct}
             step={1}
             min={0}
@@ -461,14 +563,15 @@ export default function AssumptionsForm({
             onChange={(n) => update({ effectiveTaxRatePct: n })}
             suffix="%"
           />
+          <p className="text-muted text-[10px]">
+            Savings is derived — each year you save whatever&apos;s left after tax and spending.
+            There is no separate savings-rate input.
+          </p>
         </div>
       </Section>
 
       <Section title="Lifestyle creep" defaultOpen={false}>
-        <LifestyleEditor
-          value={value.lifestyle}
-          onChange={(next) => update({ lifestyle: next })}
-        />
+        <LifestyleEditor value={value.lifestyle} onChange={(next) => update({ lifestyle: next })} />
       </Section>
 
       <Section title="Investment & inflation">
@@ -485,9 +588,7 @@ export default function AssumptionsForm({
               label="Return (low)"
               value={value.investment.returnPctLow}
               step={0.25}
-              onChange={(n) =>
-                update({ investment: { ...value.investment, returnPctLow: n } })
-              }
+              onChange={(n) => update({ investment: { ...value.investment, returnPctLow: n } })}
               suffix="%"
             />
             <NumField
@@ -501,15 +602,13 @@ export default function AssumptionsForm({
               label="Return (high)"
               value={value.investment.returnPctHigh}
               step={0.25}
-              onChange={(n) =>
-                update({ investment: { ...value.investment, returnPctHigh: n } })
-              }
+              onChange={(n) => update({ investment: { ...value.investment, returnPctHigh: n } })}
               suffix="%"
             />
           </div>
           <p className="text-muted text-[10px]">
-            Constraint: low ≤ base ≤ high. Values outside this range will fail
-            the save-scenario validation.
+            Constraint: low ≤ base ≤ high. Values outside this range will fail the save-scenario
+            validation.
           </p>
         </div>
       </Section>
@@ -584,6 +683,7 @@ export default function AssumptionsForm({
                               baseSalary: preset.baseSalary,
                               annualRaisePct: preset.annualRaisePct,
                               bonusPct: preset.bonusPct,
+                              annualEquity: preset.annualEquity,
                             })
                           }
                         />
@@ -627,6 +727,14 @@ export default function AssumptionsForm({
                           onChange={(v) => patchStage(p.id, i, { bonusPct: v })}
                           suffix="%"
                         />
+                        <NumField
+                          label="Equity / RSU per year"
+                          value={s.annualEquity ?? 0}
+                          step={5000}
+                          min={0}
+                          onChange={(v) => patchStage(p.id, i, { annualEquity: v })}
+                          suffix="$"
+                        />
                       </div>
                       <button
                         type="button"
@@ -668,9 +776,7 @@ export default function AssumptionsForm({
                   label="Label"
                   value={w.label}
                   onChange={(v) =>
-                    setWindfalls(
-                      value.windfalls.map((x, j) => (j === i ? { ...x, label: v } : x)),
-                    )
+                    setWindfalls(value.windfalls.map((x, j) => (j === i ? { ...x, label: v } : x)))
                   }
                 />
                 <NumField
@@ -678,9 +784,7 @@ export default function AssumptionsForm({
                   value={w.year}
                   onChange={(v) =>
                     setWindfalls(
-                      value.windfalls.map((x, j) =>
-                        j === i ? { ...x, year: Math.round(v) } : x,
-                      ),
+                      value.windfalls.map((x, j) => (j === i ? { ...x, year: Math.round(v) } : x)),
                     )
                   }
                 />
@@ -689,9 +793,7 @@ export default function AssumptionsForm({
                   value={w.amount}
                   step={1000}
                   onChange={(v) =>
-                    setWindfalls(
-                      value.windfalls.map((x, j) => (j === i ? { ...x, amount: v } : x)),
-                    )
+                    setWindfalls(value.windfalls.map((x, j) => (j === i ? { ...x, amount: v } : x)))
                   }
                   suffix="$"
                 />
@@ -759,9 +861,7 @@ export default function AssumptionsForm({
                     value={e.label}
                     onChange={(v) =>
                       setMajor(
-                        value.majorExpenses.map((x, j) =>
-                          j === i ? { ...x, label: v } : x,
-                        ),
+                        value.majorExpenses.map((x, j) => (j === i ? { ...x, label: v } : x)),
                       )
                     }
                   />
