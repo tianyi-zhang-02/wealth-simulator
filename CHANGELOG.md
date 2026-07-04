@@ -6,6 +6,38 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Stripped to a client-only simulator
+
+The project is now **purely a client-side wealth-projection simulator** —
+no backend, no database, no auth, and nothing stored or cached anywhere.
+The owner moved day-to-day tracking to a real brokerage and wanted just
+the projection tool.
+
+- **Removed** all tracking, auth, and backend: accounts, transactions,
+  snapshots, savings goals, holdings, portfolio, tax-lots, dashboard,
+  magic-link auth, every `/api/*` route, the entire Supabase layer
+  (schema, migrations, clients), the Alpha Vantage quote proxy + price
+  cache, and all related validation / types / helpers. (Preserved in
+  git history.)
+- **Removed** all environment variables — the app needs none.
+- **Changed** the app is now a single page (`/`) rendering the
+  simulator entirely client-side. Scenarios live in memory; a refresh
+  resets. Persistence is manual **Export / Import** of a scenario as a
+  JSON file (imports validated against the engine's Zod schema).
+- **Added** JSON **import** (export already existed) and a cleaner
+  three-tab layout — **Projection · Assumptions · Compare** — with a
+  scenario bar on top.
+- **Changed** `src/proxy.ts` down to CSP-nonce only (no Supabase /
+  session / auth). Strict CSP retained; `connect-src` is now `'self'`
+  since the app makes no network calls.
+- **Removed** dependencies: `@supabase/ssr`, `@supabase/supabase-js`,
+  `@hookform/resolvers`, `react-hook-form`, `lucide-react`,
+  `server-only`, and the `@electric-sql/pglite` devDep. Runtime deps
+  are now just `next`, `react`, `react-dom`, `recharts`, `zod`.
+- **Removed** now-obsolete docs (self-hosting guide, deploy runbook,
+  spec files, data-model architecture doc). README + CLAUDE.md
+  rewritten for the client-only app. `npm audit`: 0 vulnerabilities.
+
 ### Projection-first re-focus
 
 The app is now projection-first: the wealth simulator is the home screen,
@@ -150,8 +182,8 @@ deleted and there are no DB changes; this is a reversible re-focus.**
   - `incomeScaled`: absorbs `creepShareOfRaisePct` % of each after-tax
     raise into the next year's expense baseline; pay cuts clamped
     (sticky-downward).
-  Composes with the savings-rate cap — never double-counts. Documented as
-  engine assumption #6a.
+    Composes with the savings-rate cap — never double-counts. Documented as
+    engine assumption #6a.
 - **Added** Goal-seek mode. User sets `target = { amount, age }` and the
   simulator solves four levers by **bisection over the verified engine**
   (no closed-form): extra monthly contribution, return %, annual expenses,

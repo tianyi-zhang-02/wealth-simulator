@@ -1,0 +1,440 @@
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
+
+import SimulatorChart, { type Marker } from '@/components/charts/simulator-chart';
+import AssumptionsForm from '@/components/simulator/assumptions-form';
+import CompareView, { type ComparableScenario } from '@/components/simulator/compare-view';
+import { defaultAssumptions, newId } from '@/components/simulator/default-assumptions';
+import GoalSeekPanel from '@/components/simulator/goal-seek-panel';
+import YearTable from '@/components/simulator/year-table';
+import { simulate } from '@/lib/simulator/engine';
+import { assumptionsSchema, type Assumptions } from '@/lib/validation/scenarios';
+
+/**
+ * Wealth-projection simulator — the entire app.
+ *
+ * Purely client-side. There is no backend, no database, no auth, and
+ * nothing is stored or cached anywhere:
+ *
+ *   - Scenarios live in this component's React state only. Refreshing the
+ *     tab resets to a single blank scenario. Nothing is written to a
+ *     server, and nothing is written to browser storage (no localStorage,
+ *     no cookies).
+ *   - Persistence is by file: "Export JSON" downloads the current scenario
+ *     as a `.json`; "Import JSON" reads one back in. Both are pure browser
+ *     APIs — no network call.
+ *   - Every number the projection uses is typed in by the visitor. There
+ *     is no "use my actual data" prefill and no live market data.
+ *
+ * The only dependencies are the pure simulation engine, the simulator UI
+ * components, the chart, and the `Assumptions` zod schema (used to validate
+ * imported files). No network-touching module exists in the app at all.
+ */
+
+function fmtCurrency0(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function fmtPct(n: number): string {
+  return `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`;
+}
+
+/**
+ * Trigger a client-side JSON download of the given scenario. Uses Blob +
+ * URL.createObjectURL — pure browser API, no network call. The user's
+ * browser DevTools network tab should show nothing as a result of clicking
+ * the export button.
+ */
+function downloadScenarioJson(name: string, assumptions: Assumptions): void {
+  const payload = JSON.stringify({ name, assumptions }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  // Slugify the scenario name for the filename. Keep it readable but safe.
+  const slug = (name || 'scenario')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+  a.download = `${slug || 'scenario'}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Revoke async so the browser has a chance to start the download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+type Tab = 'projection' | 'assumptions' | 'compare';
+
+export default function SimulatorClient() {
+  // In-memory scenarios. Nothing is written to a server or to browser
+  // storage — refresh means a clean slate. Persistence is by file only
+  // (Export / Import JSON).
+  const [scenarios, setScenarios] = useState<ComparableScenario[]>(() => [
+    { id: newId(), name: 'Scenario 1', assumptions: defaultAssumptions() },
+  ]);
+  const [selectedId, setSelectedId] = useState<string>(() => scenarios[0]!.id);
+  const [displayMode, setDisplayMode] = useState<'nominal' | 'real'>('nominal');
+  const [showTable, setShowTable] = useState(false);
+  const [tab, setTab] = useState<Tab>('projection');
+  const [note, setNote] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function flash(msg: string) {
+    setNote(msg);
+    window.setTimeout(() => setNote(null), 2200);
+  }
+
+  const current = scenarios.find((s) => s.id === selectedId) ?? scenarios[0]!;
+  const assumptions = current.assumptions;
+
+  function patchCurrent(next: Assumptions) {
+    setScenarios((arr) => arr.map((s) => (s.id === current.id ? { ...s, assumptions: next } : s)));
+  }
+
+  function renameCurrent(nextName: string) {
+    setScenarios((arr) => arr.map((s) => (s.id === current.id ? { ...s, name: nextName } : s)));
+  }
+
+  function addScenario() {
+    const fresh: ComparableScenario = {
+      id: newId(),
+      name: `Scenario ${scenarios.length + 1}`,
+      assumptions: defaultAssumptions(),
+    };
+    setScenarios((arr) => [...arr, fresh]);
+    setSelectedId(fresh.id);
+  }
+
+  function duplicateCurrent() {
+    const copy: ComparableScenario = {
+      id: newId(),
+      name: `${current.name} (copy)`.slice(0, 80),
+      // Structured clone to avoid sharing the assumptions object across rows.
+      assumptions: JSON.parse(JSON.stringify(assumptions)) as Assumptions,
+    };
+    setScenarios((arr) => [...arr, copy]);
+    setSelectedId(copy.id);
+  }
+
+  function removeCurrent() {
+    if (scenarios.length === 1) return;
+    setScenarios((arr) => {
+      const next = arr.filter((s) => s.id !== current.id);
+      // Re-select something that still exists.
+      setSelectedId(next[0]!.id);
+      return next;
+    });
+  }
+
+  function exportCurrent() {
+    downloadScenarioJson(current.name, assumptions);
+    flash('Downloaded.');
+  }
+
+  async function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset so re-selecting the same file fires onChange
+    if (!file) return;
+    setImportError(null);
+    try {
+      const raw: unknown = JSON.parse(await file.text());
+      // Accept either the exported `{ name, assumptions }` envelope or a
+      // bare assumptions object. Validate against the same schema the
+      // engine relies on, so a malformed or hand-edited file can't crash
+      // the projection.
+      const container = (raw ?? {}) as { name?: unknown; assumptions?: unknown };
+      const candidate = container.assumptions ?? raw;
+      const parsed = assumptionsSchema.safeParse(candidate);
+      if (!parsed.success) {
+        setImportError('That file is not a valid scenario.');
+        return;
+      }
+      const name =
+        typeof container.name === 'string' && container.name.trim()
+          ? container.name.slice(0, 80)
+          : 'Imported scenario';
+      const fresh: ComparableScenario = { id: newId(), name, assumptions: parsed.data };
+      setScenarios((arr) => [...arr, fresh]);
+      setSelectedId(fresh.id);
+      setTab('projection');
+      flash('Imported.');
+    } catch {
+      setImportError('Could not read that file.');
+    }
+  }
+
+  const result = useMemo(() => {
+    try {
+      return simulate(assumptions);
+    } catch (err) {
+      console.warn('[public-simulator] simulate failed', err);
+      return null;
+    }
+  }, [assumptions]);
+
+  const lastNominal = result?.rows[result.rows.length - 1]?.netWorth ?? 0;
+  const lastReal = result?.rows[result.rows.length - 1]?.netWorthRealTodayDollars ?? 0;
+  const firstNominal = result?.rows[0]?.netWorth ?? 0;
+  const totalGrowth = firstNominal > 0 ? (lastNominal / firstNominal - 1) * 100 : 0;
+
+  // Markers identical to the authed simulator: a dot per windfall and
+  // per active major-expense year on the base line.
+  const markers = useMemo<Marker[]>(() => {
+    if (!result) return [];
+    const byYear = new Map(result.rows.map((r) => [r.year, r]));
+    const out: Marker[] = [];
+    for (const w of assumptions.windfalls) {
+      const row = byYear.get(w.year);
+      if (!row) continue;
+      out.push({
+        year: w.year,
+        value: displayMode === 'real' ? row.netWorthRealTodayDollars : row.netWorth,
+        label: w.label,
+        tone: 'windfall',
+      });
+    }
+    for (const e of assumptions.majorExpenses) {
+      const yrs =
+        'year' in e ? [e.year] : Array.from({ length: e.years }, (_, i) => e.startYear + i);
+      for (const y of yrs) {
+        const row = byYear.get(y);
+        if (!row) continue;
+        out.push({
+          year: y,
+          value: displayMode === 'real' ? row.netWorthRealTodayDollars : row.netWorth,
+          label: e.label,
+          tone: 'expense',
+        });
+      }
+    }
+    return out;
+  }, [result, assumptions.windfalls, assumptions.majorExpenses, displayMode]);
+
+  const highlightYears = useMemo(() => {
+    const set = new Set<number>();
+    for (const p of assumptions.people) {
+      for (const s of p.careerStages) {
+        set.add(p.birthYear + s.startAge);
+      }
+    }
+    for (const w of assumptions.windfalls) set.add(w.year);
+    for (const e of assumptions.majorExpenses) {
+      if ('year' in e) set.add(e.year);
+      else for (let i = 0; i < e.years; i += 1) set.add(e.startYear + i);
+    }
+    return set;
+  }, [assumptions.people, assumptions.windfalls, assumptions.majorExpenses]);
+
+  const TABS: ReadonlyArray<{ id: Tab; label: string; disabled?: boolean }> = [
+    { id: 'projection', label: 'Projection' },
+    { id: 'assumptions', label: 'Assumptions' },
+    { id: 'compare', label: 'Compare', disabled: scenarios.length < 2 },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-col gap-1">
+        <h1 className="serif-display text-2xl">Wealth projection simulator</h1>
+        <p className="text-muted text-xs">
+          Project net worth year by year from your own assumptions. Runs entirely in your browser —
+          nothing is saved or sent anywhere. Use Export / Import to keep a scenario as a file.
+        </p>
+      </header>
+
+      {/* Scenario bar — pick / name / manage the current scenario. */}
+      <section className="border-border flex flex-col gap-3 rounded-lg border p-3">
+        <div className="flex items-center gap-2">
+          <select
+            aria-label="Scenario"
+            className="border-border bg-background min-w-0 flex-1 rounded border px-3 py-2 text-sm"
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+          >
+            {scenarios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={addScenario}
+            className="border-border hover:bg-foreground/5 shrink-0 rounded border px-3 py-2 text-xs"
+          >
+            + New
+          </button>
+        </div>
+
+        <input
+          type="text"
+          aria-label="Scenario name"
+          value={current.name}
+          maxLength={80}
+          onChange={(e) => renameCurrent(e.target.value)}
+          className="border-border focus:border-foreground rounded border bg-transparent px-3 py-2 text-sm outline-none"
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={duplicateCurrent}
+            className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
+          >
+            Duplicate
+          </button>
+          <button
+            type="button"
+            onClick={exportCurrent}
+            className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
+          >
+            Export JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
+          >
+            Import JSON
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={onImportFile}
+            className="hidden"
+          />
+          {scenarios.length > 1 ? (
+            <button
+              type="button"
+              onClick={removeCurrent}
+              className="text-muted hover:text-negative ml-auto text-xs"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        {note ? <p className="text-positive text-[11px]">{note}</p> : null}
+        {importError ? <p className="text-negative text-[11px]">{importError}</p> : null}
+      </section>
+
+      {/* Tab nav — Projection / Assumptions / Compare. */}
+      <nav className="border-border grid grid-cols-3 gap-0.5 rounded-lg border p-0.5 text-xs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            disabled={t.disabled}
+            onClick={() => setTab(t.id)}
+            className={`rounded-md px-3 py-2 transition-colors ${
+              tab === t.id
+                ? 'bg-foreground/10 text-foreground'
+                : 'text-muted hover:text-foreground disabled:hover:text-muted disabled:opacity-40'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'projection' ? (
+        <div className="flex flex-col gap-6">
+          {/* Headline result. */}
+          <section className="border-border rounded-lg border p-4">
+            <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+              Final balance · {assumptions.horizonEndYear}
+            </p>
+            <p className="serif-display nums mt-1 text-3xl">{fmtCurrency0(lastNominal)}</p>
+            <p className="text-muted nums mt-1 text-xs">
+              {fmtCurrency0(lastReal)} in today&apos;s dollars · {fmtPct(totalGrowth)} over horizon
+            </p>
+          </section>
+
+          {/* Chart + nominal/real toggle. */}
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+                Projection · low–high band
+              </p>
+              <div className="border-border flex rounded border text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('nominal')}
+                  className={`px-2.5 py-1 ${
+                    displayMode === 'nominal' ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                  }`}
+                >
+                  Nominal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('real')}
+                  className={`px-2.5 py-1 ${
+                    displayMode === 'real' ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                  }`}
+                >
+                  Real
+                </button>
+              </div>
+            </div>
+            {result ? (
+              <SimulatorChart result={result} mode={displayMode} markers={markers} />
+            ) : (
+              <p className="text-negative text-xs">Could not compute projection — check inputs.</p>
+            )}
+            <p className="text-muted text-[10px]">
+              Band = pessimistic to optimistic return. Green dots are windfall years; red dots are
+              major-expense years.
+            </p>
+          </section>
+
+          {/* Goal-seek. */}
+          <GoalSeekPanel assumptions={assumptions} onChange={patchCurrent} />
+
+          {/* Year-by-year table (collapsed by default). */}
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-muted text-[10px] tracking-[0.18em] uppercase">Year by year</p>
+              <button
+                type="button"
+                onClick={() => setShowTable((v) => !v)}
+                className="text-muted hover:text-foreground text-xs"
+              >
+                {showTable ? 'Hide table' : 'Show table'}
+              </button>
+            </div>
+            {showTable && result ? (
+              <YearTable
+                rows={result.rows}
+                people={assumptions.people}
+                highlightYears={highlightYears}
+              />
+            ) : null}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'assumptions' ? (
+        <AssumptionsForm value={assumptions} onChange={patchCurrent} />
+      ) : null}
+
+      {tab === 'compare' ? (
+        <CompareView scenarios={scenarios} onExit={() => setTab('projection')} />
+      ) : null}
+
+      <p className="text-muted text-[10px] italic">
+        Estimates based on your assumptions. Not a prediction or financial advice. Career-role
+        salaries in the role library are illustrative defaults, not market data — replace with your
+        own figures.
+      </p>
+    </div>
+  );
+}
