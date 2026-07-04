@@ -52,7 +52,7 @@ Runtime deps are only: `next`, `react`, `react-dom`, `recharts`, `zod`. **Do not
 
 ## The engine is verified — don't break the math
 
-`src/lib/simulator/engine.ts` is a pure deterministic function (`simulate(assumptions) → rows`). It has a carefully documented inflation convention (end-of-year, row `i` values nominal at T=i+1), eight enumerated simplifying assumptions, and lifestyle-creep modes that compose with the savings-rate cap without double-counting. The goal-seek solver (`goalSeek.ts`) works by **bisection over this engine**, not closed-form formulas.
+`src/lib/simulator/engine.ts` is a pure deterministic function (`simulate(assumptions) → rows`). It has a carefully documented inflation convention (end-of-year, row `i` values nominal at T=i+1), eight enumerated simplifying assumptions, and lifestyle-creep modes. Key model rules: **savings is derived** (`saved = after-tax income − spending`; there is no savings-rate input — the implied rate is shown as an output), and **income includes salary + bonus + equity/RSUs**, all taxed at the flat effective rate. Role presets (`rolePresets.ts`) and a rough state+federal tax lookup (`tax-presets.ts`) are illustrative starting points the user overrides. The goal-seek solver (`goalSeek.ts`) works by **bisection over this engine**, not closed-form formulas.
 
 All of this is covered by unit tests (`npm test`). If you change engine behavior, update the tests and re-verify against hand-computed cases. Don't silently alter the math.
 

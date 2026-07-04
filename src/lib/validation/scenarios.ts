@@ -10,7 +10,11 @@ const money = z
   .min(-1e12)
   .max(1e12)
   .refine((n) => Number.isFinite(n), 'must be finite');
-const positiveMoney = z.number().min(0).max(1e12).refine((n) => Number.isFinite(n), 'must be finite');
+const positiveMoney = z
+  .number()
+  .min(0)
+  .max(1e12)
+  .refine((n) => Number.isFinite(n), 'must be finite');
 const pct = z.number().min(-100).max(500);
 
 const careerStageSchema = z.object({
@@ -19,6 +23,12 @@ const careerStageSchema = z.object({
   baseSalary: positiveMoney,
   annualRaisePct: z.number().min(-50).max(100),
   bonusPct: z.number().min(0).max(500).optional(),
+  /**
+   * Annual equity / RSU compensation in nominal dollars. Optional (older
+   * scenarios have none). Added flat to gross income each year of the
+   * stage and taxed as ordinary income (RSUs vest as W-2 income).
+   */
+  annualEquity: positiveMoney.optional(),
 });
 export type CareerStage = z.infer<typeof careerStageSchema>;
 
@@ -76,10 +86,8 @@ export type Investment = z.infer<typeof investmentSchema>;
  * baseline. The remaining baseline still inflates by `inflationPct`
  * year-over-year.
  *
- * Both modes interact with the savings-rate cap exactly the way the
- * pre-creep engine did: expenses sit on the expense side of the cash-
- * flow ledger; savings-rate sits on the contribution side. See the
- * engine header for the documented interaction.
+ * Creep only moves the expense side, which directly reduces derived
+ * savings (savings = after-tax income − spending). See the engine header.
  */
 const lifestyleSchema = z.object({
   mode: z.enum(['flat', 'incomeScaled']),
@@ -110,7 +118,9 @@ export const assumptionsSchema = z
     people: z.array(personSchema).max(10),
     startingNetWorth: money,
     startingInvested: positiveMoney,
-    annualSavingsRatePct: z.number().min(0).max(100),
+    // NOTE: savings is DERIVED (after-tax income − spending), not an input.
+    // `annualSavingsRatePct` was removed; imported files that still carry it
+    // are accepted (zod strips unknown keys) and the value is ignored.
     effectiveTaxRatePct: z.number().min(0).max(80),
     investment: investmentSchema,
     inflationPct: z.number().min(-20).max(50),
@@ -123,9 +133,9 @@ export const assumptionsSchema = z
     // Added in Feature 4 (simulator v2). Optional — when absent, the
     // goal-seek panel is not rendered.
     target: targetSchema.optional(),
-    // Added in Feature 4 (simulator v2). Additional annual contribution on
-    // top of the savings-rate calculation, in nominal dollars. Used as the
-    // "save $X/mo more" lever; defaults to 0 if absent.
+    // Additional annual savings in nominal dollars, added on top of the
+    // derived savings. Used as the goal-seek "save $X/mo more" lever;
+    // defaults to 0 if absent.
     extraAnnualContribution: positiveMoney.optional(),
   })
   .refine((v) => v.horizonEndYear >= v.horizonStartYear, {

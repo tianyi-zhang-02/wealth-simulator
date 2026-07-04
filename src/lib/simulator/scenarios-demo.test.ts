@@ -20,7 +20,6 @@ function base(overrides: Partial<Assumptions> = {}): Assumptions {
     people: [],
     startingNetWorth: 0,
     startingInvested: 0,
-    annualSavingsRatePct: 0,
     effectiveTaxRatePct: 0,
     investment: { returnPct: 7, returnPctLow: 7, returnPctHigh: 7 },
     inflationPct: 0,
@@ -52,7 +51,9 @@ describe('demo: three sanity cases', () => {
       startBal = r.investedBalance;
     }
     console.log(`\nLast row nominal: $${fmt(last.netWorth)} (expected ≈ $196,715)`);
-    console.log(`Last row real:    $${fmt(last.netWorthRealTodayDollars)} (= nominal at 0% infl)\n`);
+    console.log(
+      `Last row real:    $${fmt(last.netWorthRealTodayDollars)} (= nominal at 0% infl)\n`,
+    );
     expect(last.netWorth).toBeGreaterThan(0);
   });
 
@@ -65,12 +66,9 @@ describe('demo: three sanity cases', () => {
           id: 'p1',
           name: 'Saver',
           birthYear: 2000,
-          careerStages: [
-            { label: 'Saving', startAge: 26, baseSalary: 12_000, annualRaisePct: 0 },
-          ],
+          careerStages: [{ label: 'Saving', startAge: 26, baseSalary: 12_000, annualRaisePct: 0 }],
         },
       ],
-      annualSavingsRatePct: 100,
       effectiveTaxRatePct: 0,
     });
     const { rows } = simulate(a);
@@ -78,8 +76,12 @@ describe('demo: three sanity cases', () => {
     console.log('\n=== CASE 2: $0 starting · $12k/yr · 7% · 10 yrs · 0% infl ===');
     console.log(`Last row nominal: $${fmt(last.netWorth)} (expected ≈ $172k ballpark)`);
     // Ordinary annuity FV = 12,000 * ((1.07^10 - 1) / 0.07) ≈ $165,797
-    console.log(`Closed-form ordinary annuity:  $${fmt(12_000 * ((Math.pow(1.07, 10) - 1) / 0.07))}`);
-    console.log(`Closed-form annuity due (BoY): $${fmt(12_000 * ((Math.pow(1.07, 10) - 1) / 0.07) * 1.07)}\n`);
+    console.log(
+      `Closed-form ordinary annuity:  $${fmt(12_000 * ((Math.pow(1.07, 10) - 1) / 0.07))}`,
+    );
+    console.log(
+      `Closed-form annuity due (BoY): $${fmt(12_000 * ((Math.pow(1.07, 10) - 1) / 0.07) * 1.07)}\n`,
+    );
     expect(last.netWorth).toBeGreaterThan(150_000);
     expect(last.netWorth).toBeLessThan(200_000);
   });
@@ -120,11 +122,15 @@ describe('demo: coherence challenges (off-by-one check)', () => {
     console.log('\n=== COHERENCE A: $100k windfall + $100k expense, same year ===');
     console.log(`expenses[0]:                       $${fmt(r.expenses)}`);
     console.log(`windfalls[0]:                      $${fmt(r.windfalls)}  ← equal in nominal`);
-    console.log(`netWorth (end of row 0):           $${fmt(r.netWorth)}  ← exactly $0, they cancel`);
+    console.log(
+      `netWorth (end of row 0):           $${fmt(r.netWorth)}  ← exactly $0, they cancel`,
+    );
     console.log(`netWorthRealTodayDollars:          $${fmt(r.netWorthRealTodayDollars)}`);
     const realDeflator = Math.pow(1.03, 1);
     console.log(`Implied real expense = exp/factor: $${fmt(r.expenses / realDeflator)}`);
-    console.log(`Implied real windfall = wf/factor: $${fmt(r.windfalls / realDeflator)}  ← same factor, same real value\n`);
+    console.log(
+      `Implied real windfall = wf/factor: $${fmt(r.windfalls / realDeflator)}  ← same factor, same real value\n`,
+    );
     expect(r.netWorth).toBeCloseTo(0, 2);
     expect(r.expenses).toEqual(r.windfalls);
   });
@@ -161,10 +167,16 @@ describe('demo: coherence challenges (off-by-one check)', () => {
     console.log('\n=== COHERENCE B: $100k expense in final year, 10-row horizon ===');
     console.log(`Row 9 nominal NW (no-expense scenario):    $${fmt(aLast.netWorth)}`);
     console.log(`Row 9 nominal NW (with-expense scenario):  $${fmt(bLast.netWorth)}`);
-    console.log(`Nominal NW delta (A − B):                  $${fmt(observedNominalDelta)}  ← exactly $100k`);
+    console.log(
+      `Nominal NW delta (A − B):                  $${fmt(observedNominalDelta)}  ← exactly $100k`,
+    );
     console.log('');
-    console.log(`Row 9 real NW (no-expense):                $${fmt(aLast.netWorthRealTodayDollars)}`);
-    console.log(`Row 9 real NW (with-expense):              $${fmt(bLast.netWorthRealTodayDollars)}`);
+    console.log(
+      `Row 9 real NW (no-expense):                $${fmt(aLast.netWorthRealTodayDollars)}`,
+    );
+    console.log(
+      `Row 9 real NW (with-expense):              $${fmt(bLast.netWorthRealTodayDollars)}`,
+    );
     console.log(`Real NW delta (A − B):                     $${fmt(observedRealDelta)}`);
     console.log('');
     console.log(`Expense column (row 9) divided by (1.03)^${N}:  $${fmt(observedExpenseReal)}`);
