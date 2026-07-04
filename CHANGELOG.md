@@ -6,6 +6,18 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Live side-by-side editor
+
+- **Changed** the simulator from a three-tab layout to a **live side-by-side
+  editor**: assumptions on the left, the projection (final balance + chart +
+  goal-seek) pinned (`sticky`) on the right, so editing an assumption updates
+  the chart in real time. On mobile it stacks — projection on top, assumptions
+  below.
+- **Changed** Compare is now a toggle in the scenario bar (swaps the editor
+  for the compare view) instead of a third tab.
+- **Changed** page container widened to `max-w-6xl` to fit the two columns;
+  the year-by-year table sits full-width below the split.
+
 ### Stripped to a client-only simulator
 
 The project is now **purely a client-side wealth-projection simulator** —

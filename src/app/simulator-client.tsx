@@ -71,8 +71,6 @@ function downloadScenarioJson(name: string, assumptions: Assumptions): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-type Tab = 'projection' | 'assumptions' | 'compare';
-
 export default function SimulatorClient() {
   // In-memory scenarios. Nothing is written to a server or to browser
   // storage — refresh means a clean slate. Persistence is by file only
@@ -83,7 +81,7 @@ export default function SimulatorClient() {
   const [selectedId, setSelectedId] = useState<string>(() => scenarios[0]!.id);
   const [displayMode, setDisplayMode] = useState<'nominal' | 'real'>('nominal');
   const [showTable, setShowTable] = useState(false);
-  const [tab, setTab] = useState<Tab>('projection');
+  const [comparing, setComparing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +125,8 @@ export default function SimulatorClient() {
 
   function removeCurrent() {
     if (scenarios.length === 1) return;
+    // Dropping below 2 makes compare meaningless — return to the editor.
+    if (scenarios.length <= 2) setComparing(false);
     setScenarios((arr) => {
       const next = arr.filter((s) => s.id !== current.id);
       // Re-select something that still exists.
@@ -165,7 +165,7 @@ export default function SimulatorClient() {
       const fresh: ComparableScenario = { id: newId(), name, assumptions: parsed.data };
       setScenarios((arr) => [...arr, fresh]);
       setSelectedId(fresh.id);
-      setTab('projection');
+      setComparing(false);
       flash('Imported.');
     } catch {
       setImportError('Could not read that file.');
@@ -233,12 +233,6 @@ export default function SimulatorClient() {
     }
     return set;
   }, [assumptions.people, assumptions.windfalls, assumptions.majorExpenses]);
-
-  const TABS: ReadonlyArray<{ id: Tab; label: string; disabled?: boolean }> = [
-    { id: 'projection', label: 'Projection' },
-    { id: 'assumptions', label: 'Assumptions' },
-    { id: 'compare', label: 'Compare', disabled: scenarios.length < 2 },
-  ];
 
   return (
     <div className="flex flex-col gap-5">
@@ -312,6 +306,17 @@ export default function SimulatorClient() {
             onChange={onImportFile}
             className="hidden"
           />
+          {scenarios.length >= 2 ? (
+            <button
+              type="button"
+              onClick={() => setComparing((v) => !v)}
+              className={`rounded border px-3 py-1.5 text-xs ${
+                comparing ? 'border-accent text-accent' : 'border-border hover:bg-foreground/5'
+              }`}
+            >
+              {comparing ? '← Back to editor' : 'Compare'}
+            </button>
+          ) : null}
           {scenarios.length > 1 ? (
             <button
               type="button"
@@ -326,80 +331,82 @@ export default function SimulatorClient() {
         {importError ? <p className="text-negative text-[11px]">{importError}</p> : null}
       </section>
 
-      {/* Tab nav — Projection / Assumptions / Compare. */}
-      <nav className="border-border grid grid-cols-3 gap-0.5 rounded-lg border p-0.5 text-xs">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            disabled={t.disabled}
-            onClick={() => setTab(t.id)}
-            className={`rounded-md px-3 py-2 transition-colors ${
-              tab === t.id
-                ? 'bg-foreground/10 text-foreground'
-                : 'text-muted hover:text-foreground disabled:hover:text-muted disabled:opacity-40'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === 'projection' ? (
-        <div className="flex flex-col gap-6">
-          {/* Headline result. */}
-          <section className="border-border rounded-lg border p-4">
-            <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
-              Final balance · {assumptions.horizonEndYear}
-            </p>
-            <p className="serif-display nums mt-1 text-3xl">{fmtCurrency0(lastNominal)}</p>
-            <p className="text-muted nums mt-1 text-xs">
-              {fmtCurrency0(lastReal)} in today&apos;s dollars · {fmtPct(totalGrowth)} over horizon
-            </p>
-          </section>
-
-          {/* Chart + nominal/real toggle. */}
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                Projection · low–high band
-              </p>
-              <div className="border-border flex rounded border text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setDisplayMode('nominal')}
-                  className={`px-2.5 py-1 ${
-                    displayMode === 'nominal' ? 'bg-foreground/10 text-foreground' : 'text-muted'
-                  }`}
-                >
-                  Nominal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDisplayMode('real')}
-                  className={`px-2.5 py-1 ${
-                    displayMode === 'real' ? 'bg-foreground/10 text-foreground' : 'text-muted'
-                  }`}
-                >
-                  Real
-                </button>
-              </div>
+      {comparing ? (
+        <CompareView scenarios={scenarios} onExit={() => setComparing(false)} />
+      ) : (
+        <>
+          {/* Side-by-side: assumptions (left) + live projection (right, sticky
+              on desktop so edits update the chart in real time). On mobile it
+              stacks — projection on top, assumptions below. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Assumptions — edit here, watch the projection move. */}
+            <div className="order-2 lg:order-1">
+              <p className="text-muted mb-2 text-[10px] tracking-[0.18em] uppercase">Assumptions</p>
+              <AssumptionsForm value={assumptions} onChange={patchCurrent} />
             </div>
-            {result ? (
-              <SimulatorChart result={result} mode={displayMode} markers={markers} />
-            ) : (
-              <p className="text-negative text-xs">Could not compute projection — check inputs.</p>
-            )}
-            <p className="text-muted text-[10px]">
-              Band = pessimistic to optimistic return. Green dots are windfall years; red dots are
-              major-expense years.
-            </p>
-          </section>
 
-          {/* Goal-seek. */}
-          <GoalSeekPanel assumptions={assumptions} onChange={patchCurrent} />
+            {/* Projection — pinned on desktop. */}
+            <div className="order-1 flex flex-col gap-6 lg:sticky lg:top-6 lg:order-2 lg:self-start">
+              {/* Headline result. */}
+              <section className="border-border rounded-lg border p-4">
+                <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+                  Final balance · {assumptions.horizonEndYear}
+                </p>
+                <p className="serif-display nums mt-1 text-3xl">{fmtCurrency0(lastNominal)}</p>
+                <p className="text-muted nums mt-1 text-xs">
+                  {fmtCurrency0(lastReal)} in today&apos;s dollars · {fmtPct(totalGrowth)} over
+                  horizon
+                </p>
+              </section>
 
-          {/* Year-by-year table (collapsed by default). */}
+              {/* Chart + nominal/real toggle. */}
+              <section className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+                    Projection · low–high band
+                  </p>
+                  <div className="border-border flex rounded border text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayMode('nominal')}
+                      className={`px-2.5 py-1 ${
+                        displayMode === 'nominal'
+                          ? 'bg-foreground/10 text-foreground'
+                          : 'text-muted'
+                      }`}
+                    >
+                      Nominal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayMode('real')}
+                      className={`px-2.5 py-1 ${
+                        displayMode === 'real' ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                      }`}
+                    >
+                      Real
+                    </button>
+                  </div>
+                </div>
+                {result ? (
+                  <SimulatorChart result={result} mode={displayMode} markers={markers} />
+                ) : (
+                  <p className="text-negative text-xs">
+                    Could not compute projection — check inputs.
+                  </p>
+                )}
+                <p className="text-muted text-[10px]">
+                  Band = pessimistic to optimistic return. Green dots are windfall years; red dots
+                  are major-expense years.
+                </p>
+              </section>
+
+              {/* Goal-seek. */}
+              <GoalSeekPanel assumptions={assumptions} onChange={patchCurrent} />
+            </div>
+          </div>
+
+          {/* Year-by-year table — full width below the split (it's wide). */}
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <p className="text-muted text-[10px] tracking-[0.18em] uppercase">Year by year</p>
@@ -419,16 +426,8 @@ export default function SimulatorClient() {
               />
             ) : null}
           </section>
-        </div>
-      ) : null}
-
-      {tab === 'assumptions' ? (
-        <AssumptionsForm value={assumptions} onChange={patchCurrent} />
-      ) : null}
-
-      {tab === 'compare' ? (
-        <CompareView scenarios={scenarios} onExit={() => setTab('projection')} />
-      ) : null}
+        </>
+      )}
 
       <p className="text-muted text-[10px] italic">
         Estimates based on your assumptions. Not a prediction or financial advice. Career-role

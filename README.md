@@ -22,7 +22,7 @@ Everything runs in the browser. **There is no backend, no database, no account, 
 - **Export / Import** a scenario as JSON — the only form of persistence (nothing is stored automatically).
 - **Installable PWA**, works offline (it's just static assets + client JS).
 
-The layout is organized into three tabs — **Projection**, **Assumptions**, **Compare** — with a scenario bar on top.
+The layout is a **live side-by-side editor**: assumptions on the left, the projection (final balance + chart + goal-seek) pinned on the right, so editing an assumption updates the chart in real time. **Compare** is a toggle in the scenario bar. On mobile it stacks (projection on top).
 
 ---
 
