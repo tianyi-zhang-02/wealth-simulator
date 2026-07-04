@@ -1,288 +1,113 @@
 @AGENTS.md
 
-# CLAUDE.md — Project Memory for `tracker`
+# CLAUDE.md — Project Memory for the Wealth Projection Simulator
 
-> This file is read by Claude Code at the start of every session. It encodes the rules, conventions, and guardrails for this project. Follow it strictly. When in doubt, ask before acting.
-
----
-
-## Project
-
-**Name:** tracker
-**Owner:** tianyi-zhang-02
-**Repo:** https://github.com/tianyi-zhang-02/tracker (PUBLIC)
-**Live URL:** https://tracker-gamma-eight-14.vercel.app
-**Spec:** see `WEALTH_TRACKER_SPEC.md` in repo root — this is the authoritative source of truth for features. If something in this file conflicts with the spec, ask the user which wins.
-
-A personal mobile-first PWA to track savings, income, net worth over time, and a manually-entered investment portfolio with live market prices. Single-user per account. No bank linking, no third-party account access.
+> Read this at the start of every session. It encodes the rules and guardrails for this project. Follow it strictly. When in doubt, ask before acting.
 
 ---
 
-## 🔒 Security Rules (Non-Negotiable)
+## What this is
 
-This is a **public GitHub repo**. Assume a hostile stranger reads every commit. These rules are not suggestions.
+A **purely client-side** wealth-projection simulator. One page. Runs entirely in the browser.
 
-### Secrets
+**There is no backend, no database, no authentication, and nothing is stored or cached anywhere** — not on a server, not in `localStorage`, not in cookies. Scenarios live in React state; a refresh resets to a blank scenario. The only persistence is manual **Export / Import** of a scenario as a JSON file.
 
-1. **Never write a secret into code.** All secrets come from `process.env`. If you find yourself typing an API key, URL with credentials, or token directly into a file, stop.
-2. **Never commit `.env*` files** (except `.env.example` with placeholder values). Verify `.gitignore` covers them before every commit.
-3. **Run `git status` before every `git add`.** If you see `.env`, `.env.local`, or anything that looks like a secret file, stop and tell the user.
-4. **If a secret is needed in a client component, that's a design error.** Route the call through a Next.js API route so the secret stays server-side. Never use `NEXT_PUBLIC_` for anything sensitive — that prefix exposes the value to the browser bundle.
-5. **The `SUPABASE_SERVICE_ROLE_KEY` is server-only.** It must only appear in files under `src/app/api/` or `src/lib/supabase/server.ts`. If it shows up anywhere a client component could import, that's a bug.
-6. **The `ALPHAVANTAGE_API_KEY` is server-only.** Same rule. (Exact name: no underscore between `ALPHA` and `VANTAGE` — matches `src/lib/env.server.ts` and `.env.example`.)
+The repo was formerly a full net-worth tracker (Supabase + auth + accounts/transactions/holdings/portfolio). All of that was deliberately removed — the owner uses a real brokerage for tracking and wanted just the projection tool. The old code is preserved in git history; do not resurrect it.
 
-### Architecture security
-
-7. **No direct Supabase calls from the browser.** Even though Supabase supports it, route everything through `/app/api/*`. The browser only talks to our own API routes.
-8. **Row Level Security (RLS) is enabled on every user table.** Policy is always `auth.uid() = user_id`. If you add a new table containing user data, add the policy in the same migration.
-9. **Every API route must:**
-   - Verify the user session before doing anything else
-   - Validate input with `zod` (no exceptions, even for "obvious" GETs with query params)
-   - Return generic error messages — never leak stack traces, DB errors, or table names to the client
-   - Check the `Origin` header on mutating requests (POST/PATCH/DELETE) against an allowlist
-10. **Rate limit auth endpoints.** `/api/auth/send-otp` is capped at 5 requests/hour per IP. In-memory Map is fine for now; note in code that a real deployment with multiple instances needs Redis or Upstash.
-11. **CSP header in `next.config.ts`** — no `unsafe-inline`, no external scripts. If a library needs inline scripts, find another library.
-12. **No third-party scripts, no client analytics, no tracking pixels.** Ever.
-
-### Pre-commit verification
-
-Before every commit, mentally run this checklist:
-
-- [ ] `git status` shows no `.env*` files staged
-- [ ] No hardcoded keys, URLs with auth, or tokens in the diff
-- [ ] New API routes have auth check + zod validation
-- [ ] New tables have RLS enabled with `auth.uid() = user_id` policy
-
-If any item fails, fix before committing.
+**Live:** https://tracker-gamma-eight-14.vercel.app
 
 ---
 
-## Tech Stack
+## 🔒 The one hard rule: keep it client-only
 
-| Layer           | Choice                                                               |
-| --------------- | -------------------------------------------------------------------- |
-| Framework       | Next.js 16 (App Router)                                              |
-| Language        | TypeScript (strict mode)                                             |
-| DB + Auth       | Supabase (Postgres + magic link)                                     |
-| Hosting         | Vercel                                                               |
-| Styling         | Tailwind CSS v4 with CSS variables                                   |
-| Charts          | Recharts                                                             |
-| Validation      | Zod                                                                  |
-| Forms           | React Hook Form                                                      |
-| PWA             | next-pwa (or @serwist/next if next-pwa is incompatible with Next 16) |
-| Package manager | npm (lockfile = `package-lock.json`)                                 |
+Do not add, or propose without flagging loudly, any of:
 
-Do not introduce new dependencies without asking. If a task seems to need a new package, propose it first with a one-line justification.
+- A backend, API route, database, or auth of any kind.
+- Network requests to anything (no `fetch`, no third-party APIs, no analytics, no telemetry, no fonts/CDNs beyond what `next/font` self-hosts at build time).
+- Persistent storage — no `localStorage`, `sessionStorage`, cookies, IndexedDB. Persistence is file export/import only.
+- Environment variables / secrets. There are none, and there should be none.
 
-> **Note on package manager:** the original spec called for pnpm, but the session settled on npm and `package-lock.json` is already committed. Don't switch back without explicit user direction.
+If a requested feature seems to need any of the above, **stop and flag it** — it changes the entire nature of the project.
+
+Untrusted input surface: **imported JSON files.** Always validate imported data against `assumptionsSchema` (`src/lib/validation/scenarios.ts`) before using it. Never `eval` or trust file contents.
+
+Security posture (for such a simple app): strict CSP with per-request nonce in `src/proxy.ts` (no `unsafe-inline`/`unsafe-eval` for scripts; `connect-src 'self'`), plus static hardening headers in `next.config.ts`. Keep both.
 
 ---
 
-## Code Conventions
+## Tech stack
 
-### File structure
+| Layer           | Choice                                       |
+| --------------- | -------------------------------------------- |
+| Framework       | Next.js 16 (App Router)                      |
+| Language        | TypeScript (strict)                          |
+| Styling         | Tailwind v4 (CSS variables in `globals.css`) |
+| Charts          | Recharts                                     |
+| Validation      | Zod                                          |
+| Package manager | npm                                          |
+
+Runtime deps are only: `next`, `react`, `react-dom`, `recharts`, `zod`. **Do not add dependencies without asking.** The whole point is a tiny, dependency-light, backend-free app.
+
+---
+
+## The engine is verified — don't break the math
+
+`src/lib/simulator/engine.ts` is a pure deterministic function (`simulate(assumptions) → rows`). It has a carefully documented inflation convention (end-of-year, row `i` values nominal at T=i+1), eight enumerated simplifying assumptions, and lifestyle-creep modes that compose with the savings-rate cap without double-counting. The goal-seek solver (`goalSeek.ts`) works by **bisection over this engine**, not closed-form formulas.
+
+All of this is covered by unit tests (`npm test`). If you change engine behavior, update the tests and re-verify against hand-computed cases. Don't silently alter the math.
+
+---
+
+## Code conventions
+
+- Files: `kebab-case.tsx`. Components: `PascalCase`. Functions: `camelCase`. Types: `type` over `interface`.
+- `strict: true`, no `any` (use `unknown` + narrow).
+- Tailwind utility-first; dark theme by default (`--background`, `--foreground`, `--accent`, etc. in `globals.css`). Numbers use the `.nums` (tabular) utility.
+- Mobile-first; the app is centered in a `max-w-3xl` column.
+
+---
+
+## Layout
 
 ```
 src/
   app/
-    (auth)/login/page.tsx
-    (app)/
-      layout.tsx              ← bottom nav, requires auth
-      page.tsx                ← dashboard
-      accounts/
-      transactions/
-      goals/
-      portfolio/
-      projections/
-      settings/
-    api/
-      auth/
-      accounts/
-      transactions/
-      snapshots/
-      goals/
-      holdings/
-      quotes/
-      networth/
-      export/
-  lib/
-    supabase/
-      server.ts               ← service-role client, server-only
-      browser.ts              ← anon client for browser (used minimally)
-      middleware.ts
-    validation/               ← zod schemas, one per resource
-    utils/
+    page.tsx              server shell (await connection() for CSP nonce) → renders the client
+    simulator-client.tsx  all UI state: scenarios, Projection/Assumptions/Compare tabs, export/import
+    layout.tsx            fonts + globals + PWA registration
+    manifest.ts, icon*.tsx, apple-icon.tsx
+  proxy.ts                per-request CSP nonce (the only server-touching code)
   components/
-    ui/                       ← buttons, inputs, modals
-    charts/
-    layout/
-supabase/
-  schema.sql
-  migrations/
+    simulator/            assumptions-form, compare-view, goal-seek-panel, year-table, default-assumptions
+    charts/simulator-chart.tsx
+    pwa/sw-register.tsx
+  lib/
+    simulator/            engine, goalSeek, career-presets, rolePresets (+ tests)
+    validation/scenarios.ts
+    format/money.ts
 ```
 
-### Naming
-
-- Files: `kebab-case.tsx`
-- Components: `PascalCase`
-- Functions: `camelCase`
-- Types/interfaces: `PascalCase`, prefer `type` over `interface` unless extending
-- Database columns: `snake_case`
-- API routes: RESTful, plural nouns
-
-### TypeScript
-
-- `strict: true` always
-- No `any`. If you truly need it, use `unknown` and narrow.
-- Database row types come from `supabase gen types typescript` — keep `src/lib/database.types.ts` in sync after schema changes
-
-### Styling
-
-- Tailwind utility-first. No custom CSS files except `globals.css` for variables.
-- Dark theme is default: `--bg: #0a0a0a`, `--fg: #f5f1ea`, `--accent: #d4a574`, muted grays for secondary text
-- Numbers always use `font-variant-numeric: tabular-nums` (add a `.nums` utility)
-- Mobile-first: design at 390px width, then scale up
+UI is three tabs — **Projection** (result + chart + goal-seek + year table), **Assumptions** (the form), **Compare** — with a scenario bar (select / name / duplicate / export / import / remove) on top.
 
 ---
 
-## Build Order
+## Working discipline
 
-Work through these in order. Each step ends in a commit + push. Do not jump ahead.
-
-1. ~~Repo init~~ ✅
-2. ~~Schema~~ ✅
-3. **Auth** — magic link, middleware, /login, /api/auth/\*
-4. **Layout shell** — root layout, bottom nav, fonts, theme
-5. **Accounts CRUD**
-6. **Transactions CRUD**
-7. **Snapshots + Net Worth chart**
-8. **Savings Goals**
-9. **Holdings + Alpha Vantage proxy** ⚠️ security-sensitive — pause for user review
-10. **Household Wealth Simulator** — upgraded scope, see `STEP_10_SIMULATOR_SPEC.md` in repo root for the authoritative spec (sub-steps, data model, engine signature, UI layout). Pause after engine + unit tests land.
-11. **Export**
-12. **PWA polish**
-13. **Security hardening pass** ⚠️ pause for user review
-14. **Deploy**
-
-**Polish phase** (between Steps 12 and 13) — see `INTEGRATION_POLISH_SPEC.md`. Runs on a branch `polish/integration` and lands as a single PR. Four sections (data integration, cross-feature navigation, unified interaction patterns, visual consolidation), one commit each. Pause after Section 1 so the canonical net-worth refactor can be hand-verified before the rest piles on. This is a cohesion pass, not new features.
-
-At the ⚠️ steps, finish the work, commit, push, then explicitly tell the user "Step N done — please review the diff before I continue."
+- Small, atomic commits. Format: `<type>: <short description>` (`feat`, `fix`, `chore`, `refactor`, `docs`).
+- Never force-push to main. Feature work goes on a branch → PR.
+- A behavior-changing PR updates its docs in the same PR: `README.md`, `CHANGELOG.md`, and this file if a rule/structure changes.
+- Before "done": `npm run typecheck`, `npm run lint`, `npm test` all pass, and the happy path works in the browser.
 
 ---
 
-## Commit Discipline
+## Stop and ask
 
-- **Small, atomic commits.** One logical change per commit.
-- **Commit message format:** `<type>: <short description>` where type is one of `feat`, `fix`, `chore`, `refactor`, `docs`, `security`.
-  - Examples: `feat: add accounts CRUD api routes`, `security: enforce CSP headers`
-- **Push after every commit** when in auto mode.
-- **Never force push to main.**
-- If you create a feature branch, name it `feat/<short-name>` and open a PR rather than merging directly.
+- Anything that would add a backend, storage, network call, dependency, or env var.
+- Deleting or rewriting large amounts of working code.
+- Changing the engine math.
 
 ---
 
-## Every PR Updates Its Own Docs
+## Current state
 
-Phase 3 (docs + self-hosting) established this rule and it now applies to every subsequent PR. **A PR that changes behavior MUST update the documentation that describes that behavior, in the same PR.** Not as a follow-up. Not "we'll backfill later." The same PR.
-
-Required checks before opening any PR:
-
-- **`CHANGELOG.md`** — add an entry under `[Unreleased]` (or under the milestone the PR is part of). One bullet per user-visible change. Include the PR number once it's open. Group entries by **Added / Changed / Fixed / Security / Removed**.
-- **`README.md`** — if the PR adds, removes, or visibly changes a feature, update the **Features** section. If it changes architecture, update the **Architecture** section. If it changes env vars, update the env-var table.
-- **`.env.example`** — if the PR introduces a new env var, add it with a comment explaining what it's for and where the value comes from. If it renames or removes one, do the same. Self-hosters use this file as ground truth.
-- **`SELF_HOSTING_GUIDE.md`** — if the PR changes any of: setup steps, Supabase schema, required migrations, required env vars, Auth configuration, or troubleshooting-worthy failure modes — update it.
-- **`supabase/migrations/`** — if the PR adds a migration, also update `supabase/migrations/README.md` (apply order + what the migration does) AND fold the same SQL into `supabase/schema.sql` so a fresh setup gets the new state in one run.
-- **Spec files** (`*_SPEC.md`) — if the PR completes or amends a spec, mark the relevant section ✅ or note the deviation. Don't let specs drift from reality.
-
-For security-sensitive PRs (the ⚠️ ones in the build order): also update the **Known security debt** section of CLAUDE.md if a debt item closes or a new one is discovered.
-
-**Verification before pushing:** before `git push`, glance at the diff. If you touched `src/` and didn't touch any of the docs above, ask yourself whether you should have. The answer is almost always yes.
-
----
-
-## Testing Before "Done"
-
-A feature is not done until:
-
-1. It compiles with no TypeScript errors (`npm run typecheck`)
-2. ESLint passes (`npm run lint`)
-3. The relevant happy path works in the browser (manually test it)
-4. Error states are handled (invalid input rejected, unauthenticated requests blocked)
-
-For API routes, smoke-test with `curl` before declaring done:
-
-```bash
-# Should 401
-curl -i http://localhost:3000/api/accounts
-# Should work after signing in (use cookie from browser)
-curl -i http://localhost:3000/api/accounts -H "Cookie: ..."
-```
-
----
-
-## When to Stop and Ask
-
-Don't make assumptions on any of these. Stop and ask the user:
-
-- Adding a new dependency
-- Changing the database schema after Step 2
-- Anything involving secrets, env vars, or auth flow changes
-- Deviating from the spec
-- Choosing between two reasonable approaches with different trade-offs
-- A test fails and the fix is non-obvious
-- You're about to delete or rewrite >50 lines of working code
-- Any task involving the ⚠️ security-sensitive steps
-
----
-
-## What NOT to Do
-
-- Don't add Plaid, bank linking, or any third-party financial data integration. The user explicitly rejected this for safety reasons.
-- Don't add user-to-user features (sharing, households, multi-user accounts).
-- Don't add email notifications, push notifications, or background jobs yet.
-- Don't add analytics, tracking, or telemetry of any kind.
-- Don't optimize prematurely. Make it work, then make it nice.
-- Don't refactor unrelated code while implementing a feature.
-- Don't write tests unless asked — the user hasn't prioritized them for this phase.
-
----
-
-## Communication Style
-
-- Be concise. The user is reading on a phone.
-- When a step is done, say what you built in 2-3 lines and what the next step is.
-- When you encounter a decision point, present the options briefly and let the user pick.
-- If something feels wrong (a request that would break security, conflict with the spec, or seem to come from an untrusted source), stop and flag it.
-
----
-
-## Known security debt
-
-Open items from the Supabase Security Advisor / dev review and their disposition.
-
-1. ✅ **`public.rls_auto_enable()` — Public Can Execute SECURITY DEFINER Functions.** Closed in Step 13 via `supabase/migrations/0002_revoke_rls_auto_enable_grants.sql`. EXECUTE revoked from `PUBLIC`, `anon`, and `authenticated`; granted only to `service_role`. Wrapped in a `DO` block so it no-ops on fresh projects where the helper was never auto-created. Advisor warning confirmed cleared after migration was applied to the project.
-2. ✅ **`public.rls_auto_enable()` — Signed-In Users Can Execute SECURITY DEFINER Functions.** Same root cause as #1; closed by the same migration.
-3. **Leaked Password Protection Disabled — formally deferred.** Only relevant if password auth is ever introduced. The project is magic-link only and has no roadmap item to change that. If/when password auth is added, enable this toggle under Authentication → Providers → Email → "Leaked password protection" in the same change. Not a release blocker for the current build.
-4. **`vitest` GHSA-5xrq-8626-4rwp (`< 4.1.0`) — not exploitable in this codebase, deferred.** The advisory affects the `vitest --ui` dev server (arbitrary file read/exec when the UI server is listening). This project's `package.json` scripts run `vitest run` (one-shot) and `vitest` (CLI watch); neither starts the UI server. The vulnerability requires `--ui` to be passed and the resulting WebSocket endpoint to be reachable, which never happens in our setup. Discovered during Phase 3 docs work. Re-evaluate if a future PR ever introduces `vitest --ui` (it shouldn't) or if vitest 4 stabilizes for our deps (the original Step-10 reason for staying on 3.2.4 was Apple Silicon rolldown issues). `npm audit` will continue to flag this until then; documented here so the noise has a known disposition.
-
----
-
-## Current State
-
-- Step 1 ✅ — repo scaffolded
-- Step 2 ✅ — schema committed at `supabase/schema.sql`, waiting on user to run it in Supabase dashboard
-- Step 3 ✅ — magic-link auth; proxy allowlists `/api/auth/send-otp` + `/api/auth/verify-otp`; 8-digit OTP form; client-only token schema so the empty-email field doesn't silently fail handleSubmit. End-to-end sign-in confirmed working.
-- Step 4 ✅ — layout shell (fonts, bottom nav, (app) route group, placeholder section pages)
-- Step 5 ✅ — accounts CRUD (API routes + list page + add/edit/archive form)
-- Step 6 ✅ — transactions CRUD (API routes, filterable list, add/edit/delete form, categories autocomplete)
-- Step 7 ✅ — snapshots (single + bulk month-end), /api/networth aggregator, 12-month Recharts line on dashboard, /accounts/:id drill-down with snapshot history
-- Step 8 ✅ — savings goals CRUD (cards with progress bar, % complete, projected completion date, linked-account auto-progress)
-- Step 9 ✅ — holdings CRUD + /api/quotes server-only proxy (auth-before-outbound, restricted to owned symbols, price_cache with TTL); approved after diff review
-- Step 10 ✅ — wealth simulator (10.1 schema + 10.2 CRUD + 10.3 engine + 10.4 form + 10.5 chart + 10.6 table + 10.7 save/load/duplicate/delete + 10.8 compare + 10.9 prefill). Engine: coherent end-of-year convention (T=i+1 nominal for everything in row i); same `expenseInflationFactor` variable feeds the real-net-worth deflation. 24 passing tests including 3 sanity cases + 2 coherence proofs. Cashflow derivation lives at `src/lib/derived/cashflow.ts` for polish-phase reuse.
-- Step 11 ✅ — export endpoints (CSV transactions, CSV holdings, full JSON backup); /settings/export page with three download cards
-- Step 12 ✅ — PWA polish: manifest.ts + ImageResponse-generated icons (32/180/192/512) + hand-rolled service worker (no new deps); proxy allowlists the install endpoints; iOS apple-web-app meta + format-detection disabled
-- Polish phase ✅ — merged to main via PR #1 (`--no-ff`, merge SHA `1dd518a`). §1 canonical net-worth helper (`src/lib/derived/networth.ts`, snapshot-authoritative + live-holdings-fill); §2 cross-feature navigation (plus-menu bottom sheet, deep-link `?add=1` entry points); §3 unified interaction patterns (`src/components/ui/toast.tsx`, `src/lib/format/money.ts`); §4 visual consolidation (lucide-react icons, accent active tab). Post-merge security re-audit grep clean; dashboard net-worth unchanged from hand-verified figure.
-- Step 13 ✅ — security hardening pass merged via PR #3. Per-request CSP nonce in `src/proxy.ts` (script-src strict-dynamic + nonce, no unsafe-inline / unsafe-eval; style-src 'self' nonce; `style-src-attr 'unsafe-inline'` accepted as narrow escape hatch for Recharts SVG and dynamic `style={...}` JSX props, documented in code). Static security headers in `next.config.ts` (HSTS prod-only, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy same-origin, Permissions-Policy lockdown). SECURITY DEFINER migration `0002_revoke_rls_auto_enable_grants.sql` applied — Advisor #1 + #2 cleared. `npm audit` now 0/0/0 via postcss override. Origin checks (16/16 mutating routes) and zod length limits (every `z.string()` bounded) audited clean — no edits needed. Visual click-through under CSP confirmed by user across dashboard/portfolio/simulator/goals/transactions with no console violations.
-- Step 14 ✅ — deployed 2026-05-31 to https://tracker-gamma-eight-14.vercel.app (Vercel project `zhangtianyi975-9087s-projects/tracker`). Zero-config Next 16 build (no `vercel.json`). One-project Supabase setup (Option A from `STEP_14_DEPLOY.md` §3) — migration 0002 was applied during Step 13 review and is therefore already live in prod. Per-PR preview deploys confirmed working on `feat/simulator-v2` ahead of merge.
-
-Update this section after every completed step.
+Purely client-side simulator, deployed to Vercel. No backend, no env vars, `npm audit` clean. Formerly a full tracker (see git history / older CHANGELOG entries); stripped to the simulator in the "simulator-only" change.

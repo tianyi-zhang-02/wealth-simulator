@@ -1,5 +1,5 @@
 {
-  "name": "tracker",
+  "name": "wealth-simulator",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,27 +12,19 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:migrations": "node supabase/migrations/0003_holding_lots.rollback-test.mjs",
     "prepare": "husky"
   },
   "engines": {
     "node": ">=20.19"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.106.2",
-    "lucide-react": "^1.17.0",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-hook-form": "^7.76.1",
     "recharts": "^3.8.1",
-    "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
