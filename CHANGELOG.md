@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to **tracker**. Loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Notable changes to **wealth-simulator**. Loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 The project doesn't ship a versioned package — entries are grouped by milestone and dated. The "Live" line at the top of each section names the production URL after that milestone shipped.
 
@@ -14,6 +14,32 @@ The project doesn't ship a versioned package — entries are grouped by mileston
   `name`/`short_name` updated ("Wealth Projection Simulator" / "Wealth
   Sim"); README clone URL and this file's compare link updated. The
   Vercel project + live URL keep their existing names.
+
+### Comp model: equity, derived savings, tax presets
+
+- **Changed** the cash-flow model to **derived savings**: removed the
+  `annualSavingsRatePct` input; each year `saved = after-tax income −
+  spending`. Can go negative (drawdown). The implied savings rate is now
+  shown as an OUTPUT in the projection panel. Engine assumption #6/#6a
+  rewritten; tests re-verified with new hand-computed cases. (Imported
+  JSON that still carries `annualSavingsRatePct` is accepted and the
+  value ignored — zod strips it.)
+- **Added** equity / RSU compensation: `careerStage.annualEquity`
+  (optional) is added flat to gross income each year of the stage and
+  taxed like salary (RSUs vest as W-2 income). Every role preset now
+  carries a realistic equity figure — for big-tech / frontier-AI roles
+  it's the largest component. Career-preset SWE/EM stages updated too.
+  New "Equity / RSU per year" field on each career stage.
+- **Added** `tax-presets.ts` — a rough state (50 + DC) + federal
+  effective-rate lookup with a `TAX_LAST_REVIEWED` date. New Taxes-section
+  helper: pick a state + income → estimated combined effective rate →
+  Apply (then fine-tune). Clearly labeled illustrative, not tax advice.
+- **Changed** the role picker from search-only to a **browsable list
+  grouped by track** (Legal · Software/ML) with search on top; role lines
+  now show equity alongside base/bonus/raise.
+- **Changed** the default scenario now seeds one earner (SWE with equity)
+  so the first-load projection is illustrative rather than an all-drawdown
+  line.
 
 ### Live side-by-side editor
 

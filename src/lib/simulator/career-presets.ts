@@ -63,13 +63,21 @@ export const CAREER_PRESETS: readonly CareerPreset[] = [
     id: 'swe',
     label: 'Software engineer (IC track)',
     stages: [
-      { label: 'SWE', startAge: 22, baseSalary: 180_000, annualRaisePct: 5, bonusPct: 20 },
+      {
+        label: 'SWE',
+        startAge: 22,
+        baseSalary: 160_000,
+        annualRaisePct: 5,
+        bonusPct: 15,
+        annualEquity: 60_000,
+      },
       {
         label: 'Senior SWE',
         startAge: 28,
         baseSalary: 240_000,
         annualRaisePct: 4,
         bonusPct: 25,
+        annualEquity: 180_000,
       },
       {
         label: 'Staff SWE',
@@ -77,6 +85,7 @@ export const CAREER_PRESETS: readonly CareerPreset[] = [
         baseSalary: 320_000,
         annualRaisePct: 4,
         bonusPct: 30,
+        annualEquity: 350_000,
       },
     ],
   },
@@ -84,13 +93,21 @@ export const CAREER_PRESETS: readonly CareerPreset[] = [
     id: 'em',
     label: 'Engineering management',
     stages: [
-      { label: 'SWE', startAge: 22, baseSalary: 180_000, annualRaisePct: 5, bonusPct: 20 },
+      {
+        label: 'SWE',
+        startAge: 22,
+        baseSalary: 160_000,
+        annualRaisePct: 5,
+        bonusPct: 15,
+        annualEquity: 60_000,
+      },
       {
         label: 'Engineering Manager',
         startAge: 30,
         baseSalary: 260_000,
         annualRaisePct: 5,
         bonusPct: 25,
+        annualEquity: 200_000,
       },
       {
         label: 'Senior Manager / Director',
@@ -98,6 +115,7 @@ export const CAREER_PRESETS: readonly CareerPreset[] = [
         baseSalary: 340_000,
         annualRaisePct: 4,
         bonusPct: 30,
+        annualEquity: 400_000,
       },
     ],
   },

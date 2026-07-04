@@ -24,7 +24,6 @@ function emptyAssumptions(overrides: Partial<Assumptions> = {}): Assumptions {
     people: [],
     startingNetWorth: 0,
     startingInvested: 0,
-    annualSavingsRatePct: 0,
     effectiveTaxRatePct: 0,
     investment: { returnPct: 0, returnPctLow: 0, returnPctHigh: 0 },
     inflationPct: 0,
@@ -202,8 +201,8 @@ describe('simulate — career salary curve', () => {
   });
 });
 
-describe('simulate — tax + savings rate', () => {
-  it('after-tax = gross * (1 - taxRate)', () => {
+describe('simulate — tax + derived savings', () => {
+  it('after-tax = gross × (1 − taxRate); saved = after-tax − expenses', () => {
     const a = emptyAssumptions({
       horizonStartYear: 2030,
       horizonEndYear: 2030,
@@ -216,11 +215,42 @@ describe('simulate — tax + savings rate', () => {
         },
       ],
       effectiveTaxRatePct: 25,
-      annualSavingsRatePct: 30,
     });
     const { rows } = simulate(a);
     expect(rows[0]!.afterTaxIncome).toBe(75_000);
-    expect(rows[0]!.saved).toBeCloseTo(22_500, 2); // 30% of after-tax
+    // No expenses → the whole after-tax amount is saved (derived savings).
+    expect(rows[0]!.saved).toBeCloseTo(75_000, 2);
+  });
+
+  it('adds equity to gross income and taxes it like salary', () => {
+    const a = emptyAssumptions({
+      horizonStartYear: 2030,
+      horizonEndYear: 2030,
+      people: [
+        {
+          id: 'p1',
+          name: 'A',
+          birthYear: 2000,
+          careerStages: [
+            {
+              label: 'SWE',
+              startAge: 30,
+              baseSalary: 200_000,
+              annualRaisePct: 0,
+              bonusPct: 20,
+              annualEquity: 150_000,
+            },
+          ],
+        },
+      ],
+      effectiveTaxRatePct: 30,
+    });
+    const { rows } = simulate(a);
+    // gross = base 200k + bonus (20% of 200k = 40k) + equity 150k = 390k
+    expect(rows[0]!.grossIncome).toBe(390_000);
+    // after-tax = 390k × 0.70 = 273k; no expenses → all saved.
+    expect(rows[0]!.afterTaxIncome).toBeCloseTo(273_000, 2);
+    expect(rows[0]!.saved).toBeCloseTo(273_000, 2);
   });
 });
 
@@ -319,19 +349,20 @@ describe('simulate — return bands', () => {
 });
 
 describe('simulate — multi-year, multi-mechanic sanity check', () => {
-  it('matches a hand-computed two-year run', () => {
+  it('matches a hand-computed two-year run (derived savings)', () => {
     /**
      * - Person born 2000, base $100k, no raise/bonus
-     * - Tax 25%, savings 50%, no expenses, no inflation
+     * - Tax 25%, recurring expenses $30k, no inflation
      * - Returns 5%
      *
+     * Derived savings: saved = afterTax − expenses.
      * Year 2030 (yearsElapsed=0):
-     *   gross 100k, after-tax 75k, intended-contrib 37.5k, expenses 0
-     *   → saved 37.5k. start balance 0 → growth 0 → end 37,500
+     *   gross 100k, after-tax 75k, expenses 30k → saved 45k.
+     *   start balance 0 → growth 0 → end 45,000
      * Year 2031 (yearsElapsed=1):
-     *   gross 100k, after-tax 75k, intended-contrib 37.5k, expenses 0
-     *   → saved 37.5k. start balance 37,500 → growth 37,500*0.05 = 1,875
-     *   → end 37,500 + 1,875 + 37,500 = 76,875
+     *   gross 100k, after-tax 75k, expenses 30k → saved 45k.
+     *   start balance 45,000 → growth 45,000×0.05 = 2,250
+     *   → end 45,000 + 2,250 + 45,000 = 92,250
      */
     const a = emptyAssumptions({
       horizonStartYear: 2030,
@@ -345,13 +376,14 @@ describe('simulate — multi-year, multi-mechanic sanity check', () => {
         },
       ],
       effectiveTaxRatePct: 25,
-      annualSavingsRatePct: 50,
+      recurringAnnualExpenses: 30_000,
       investment: { returnPct: 5, returnPctLow: 5, returnPctHigh: 5 },
     });
     const { rows } = simulate(a);
-    expect(rows[0]!.netWorth).toBeCloseTo(37_500, 2);
-    expect(rows[1]!.investmentGrowth).toBeCloseTo(1_875, 2);
-    expect(rows[1]!.netWorth).toBeCloseTo(76_875, 2);
+    expect(rows[0]!.saved).toBeCloseTo(45_000, 2);
+    expect(rows[0]!.netWorth).toBeCloseTo(45_000, 2);
+    expect(rows[1]!.investmentGrowth).toBeCloseTo(2_250, 2);
+    expect(rows[1]!.netWorth).toBeCloseTo(92_250, 2);
   });
 });
 
@@ -455,7 +487,7 @@ describe('simulate — lifestyle creep (income-scaled mode)', () => {
     expect(rows[1]!.expenses).toBeCloseTo(55_000, 2);
   });
 
-  it('clamps a pay cut (income drop) so spending doesn\'t reduce', () => {
+  it("clamps a pay cut (income drop) so spending doesn't reduce", () => {
     /**
      * Person earns $100k year 0, $80k year 1 (negative raise = pay cut).
      * The raise is clamped to 0, so the baseline still inflates as if no
@@ -487,8 +519,8 @@ describe('simulate — lifestyle creep (income-scaled mode)', () => {
   });
 });
 
-describe('simulate — extraAnnualContribution stacks on the savings rate', () => {
-  it('adds the extra dollars to saved when expenses are within budget', () => {
+describe('simulate — extraAnnualContribution adds to derived savings', () => {
+  it('adds the extra dollars on top of after-tax − expenses', () => {
     const a = emptyAssumptions({
       horizonStartYear: 2030,
       horizonEndYear: 2030,
@@ -501,21 +533,20 @@ describe('simulate — extraAnnualContribution stacks on the savings rate', () =
         },
       ],
       effectiveTaxRatePct: 25,
-      annualSavingsRatePct: 30,
       extraAnnualContribution: 5_000,
     });
-    // afterTax = 75k, intended = 22.5k, expenses 0 → saved = 22.5k + 5k.
-    expect(simulate(a).rows[0]!.saved).toBeCloseTo(27_500, 2);
+    // afterTax = 75k, expenses 0 → saved = 75k + 5k extra.
+    expect(simulate(a).rows[0]!.saved).toBeCloseTo(80_000, 2);
   });
 
-  it('still applies during a shortfall (extra is added then shortfall subtracted)', () => {
+  it('still applies during a drawdown (extra added, then expenses subtracted)', () => {
     const a = emptyAssumptions({
       horizonStartYear: 2030,
       horizonEndYear: 2030,
       startingNetWorth: 100_000,
       recurringAnnualExpenses: 30_000,
       extraAnnualContribution: 5_000,
-      // No income → consumable 0, shortfall 30k. saved = 0 + 5k - 30k = -25k.
+      // No income → saved = 0 (afterTax) − 30k (expenses) + 5k (extra) = -25k.
     });
     expect(simulate(a).rows[0]!.saved).toBeCloseTo(-25_000, 2);
   });
@@ -527,7 +558,7 @@ describe('simulate — horizon edge cases', () => {
     expect(simulate(a).rows).toHaveLength(1);
   });
 
-  it('reports each person\'s age for the year', () => {
+  it("reports each person's age for the year", () => {
     const a = emptyAssumptions({
       horizonStartYear: 2030,
       horizonEndYear: 2031,

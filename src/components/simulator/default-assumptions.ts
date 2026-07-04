@@ -9,11 +9,28 @@ export function defaultAssumptions(): Assumptions {
   return {
     horizonStartYear: thisYear,
     horizonEndYear: thisYear + 30,
-    people: [],
-    startingNetWorth: 0,
-    startingInvested: 0,
-    annualSavingsRatePct: 20,
-    effectiveTaxRatePct: 30,
+    // Seed with one earner so the default projection is illustrative rather
+    // than an all-drawdown line. Everything here is meant to be overwritten.
+    people: [
+      {
+        id: newId(),
+        name: 'You',
+        birthYear: thisYear - 28,
+        careerStages: [
+          {
+            label: 'Software engineer',
+            startAge: 22,
+            baseSalary: 160_000,
+            annualRaisePct: 3,
+            bonusPct: 15,
+            annualEquity: 80_000,
+          },
+        ],
+      },
+    ],
+    startingNetWorth: 50_000,
+    startingInvested: 50_000,
+    effectiveTaxRatePct: 32,
     investment: { returnPct: 7, returnPctLow: 4, returnPctHigh: 10 },
     inflationPct: 3,
     windfalls: [],

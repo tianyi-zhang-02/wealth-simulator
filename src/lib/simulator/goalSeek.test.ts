@@ -31,7 +31,6 @@ function baseScenario(overrides: Partial<Assumptions> = {}): Assumptions {
     ],
     startingNetWorth: 50_000,
     startingInvested: 50_000,
-    annualSavingsRatePct: 20,
     effectiveTaxRatePct: 25,
     investment: { returnPct: 7, returnPctLow: 7, returnPctHigh: 7 },
     inflationPct: 0,
@@ -112,7 +111,6 @@ describe('solveGoalSeek — round trip for each lever', () => {
   function shortScenario(): Assumptions {
     return baseScenario({
       horizonEndYear: 2050,
-      annualSavingsRatePct: 80,
       recurringAnnualExpenses: 40_000,
       target: { amount: 2_000_000, age: 50 },
     });
@@ -195,7 +193,6 @@ describe('solveGoalSeek — unreachable cases', () => {
     // close the gap.
     const a = baseScenario({
       startingNetWorth: 0,
-      annualSavingsRatePct: 100,
       effectiveTaxRatePct: 0,
       recurringAnnualExpenses: 5_000,
       target: { amount: 50_000_000, age: 50 },
@@ -208,7 +205,6 @@ describe('solveGoalSeek — unreachable cases', () => {
   it('reports "not reachable" for the return lever at extreme targets', () => {
     const a = baseScenario({
       startingNetWorth: 0,
-      annualSavingsRatePct: 0,
       target: { amount: 100_000_000_000, age: 50 },
     });
     const r = solveGoalSeek(a);
@@ -223,7 +219,6 @@ describe('solveGoalSeek — deltas reflect distance from current setting', () =>
   // saved$ until the consumable threshold is reached).
   function shortScenarioForDeltas(): Assumptions {
     return baseScenario({
-      annualSavingsRatePct: 80,
       recurringAnnualExpenses: 40_000,
       target: { amount: 2_000_000, age: 50 },
     });
