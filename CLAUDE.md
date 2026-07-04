@@ -63,7 +63,7 @@ All of this is covered by unit tests (`npm test`). If you change engine behavior
 - Files: `kebab-case.tsx`. Components: `PascalCase`. Functions: `camelCase`. Types: `type` over `interface`.
 - `strict: true`, no `any` (use `unknown` + narrow).
 - Tailwind utility-first; dark theme by default (`--background`, `--foreground`, `--accent`, etc. in `globals.css`). Numbers use the `.nums` (tabular) utility.
-- Mobile-first; the app is centered in a `max-w-3xl` column.
+- Mobile-first; centered in a `max-w-6xl` column. On large screens the editor is two columns (assumptions left, projection right); on mobile it stacks.
 
 ---
 
@@ -87,7 +87,7 @@ src/
     format/money.ts
 ```
 
-UI is three tabs — **Projection** (result + chart + goal-seek + year table), **Assumptions** (the form), **Compare** — with a scenario bar (select / name / duplicate / export / import / remove) on top.
+UI is a live side-by-side editor: **Assumptions** (the form) on the left, **Projection** (final balance + chart + goal-seek) pinned on the right so edits update it in real time — with a scenario bar (select / name / duplicate / export / import / compare / remove) on top and the year-by-year table full-width below. **Compare** is a toggle in the scenario bar that swaps the editor for the compare view. On mobile it stacks (projection on top, assumptions below).
 
 ---
 
