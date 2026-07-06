@@ -16,7 +16,7 @@ import {
 import { useI18n } from '@/lib/i18n/locale';
 import type { SimulationResult, YearRow } from '@/lib/simulator/engine';
 
-export type DisplayMode = 'nominal' | 'real';
+export type DisplayMode = 'nominal' | 'real' | 'both';
 
 type Marker = {
   year: number;
@@ -28,8 +28,12 @@ type Marker = {
 
 type Point = {
   year: number;
-  base: number;
+  nominal: number;
+  real: number;
+  /** Low–high return band for the active single mode (unused when 'both'). */
   band: [number, number];
+  /** [min, max] of nominal & real — the shaded inflation gap in 'both' mode. */
+  gap: [number, number];
 };
 
 function CustomTooltip({
@@ -44,12 +48,33 @@ function CustomTooltip({
   const { t, fmt } = useI18n();
   if (!active || !payload?.length) return null;
   const p = payload[0]!.payload;
+
+  if (mode === 'both') {
+    return (
+      <div className="border-border bg-background/95 rounded border px-2 py-1.5 text-[11px] shadow-lg backdrop-blur">
+        <p className="text-muted nums">{p.year}</p>
+        <p className="nums">
+          <span className="text-muted">{t.projection.nominal}</span>{' '}
+          <span className="font-medium">{fmt.currency0(p.nominal)}</span>
+        </p>
+        <p className="nums">
+          <span className="text-muted">{t.projection.real}</span>{' '}
+          <span className="font-medium">{fmt.currency0(p.real)}</span>
+        </p>
+        <p className="text-muted nums">
+          {t.chart.inflationGap} {fmt.currency0(p.nominal - p.real)}
+        </p>
+      </div>
+    );
+  }
+
+  const base = mode === 'real' ? p.real : p.nominal;
   return (
     <div className="border-border bg-background/95 rounded border px-2 py-1.5 text-[11px] shadow-lg backdrop-blur">
       <p className="text-muted nums">
         {p.year} · {mode === 'real' ? t.chart.todaysDollars : t.chart.nominal}
       </p>
-      <p className="nums font-medium">{fmt.currency0(p.base)}</p>
+      <p className="nums font-medium">{fmt.currency0(base)}</p>
       <p className="text-muted nums">
         {fmt.currency0(p.band[0])} – {fmt.currency0(p.band[1])}
       </p>
@@ -57,7 +82,7 @@ function CustomTooltip({
   );
 }
 
-function pickValue(row: YearRow, mode: DisplayMode): number {
+function pickValue(row: YearRow, mode: 'nominal' | 'real'): number {
   return mode === 'real' ? row.netWorthRealTodayDollars : row.netWorth;
 }
 
@@ -71,17 +96,25 @@ export default function SimulatorChart({
   markers: Marker[];
 }) {
   const { t, fmt } = useI18n();
+  const both = mode === 'both';
+  // In 'both' the band is hidden; compute it for whichever single mode applies.
+  const bandMode: 'nominal' | 'real' = mode === 'real' ? 'real' : 'nominal';
+
   const data = useMemo<Point[]>(() => {
     return result.rows.map((row, i) => {
       const low = result.low[i]!;
       const high = result.high[i]!;
+      const nominal = row.netWorth;
+      const real = row.netWorthRealTodayDollars;
       return {
         year: row.year,
-        base: pickValue(row, mode),
-        band: [pickValue(low, mode), pickValue(high, mode)],
+        nominal,
+        real,
+        band: [pickValue(low, bandMode), pickValue(high, bandMode)],
+        gap: [Math.min(nominal, real), Math.max(nominal, real)],
       };
     });
-  }, [result, mode]);
+  }, [result, bandMode]);
 
   if (data.length === 0) {
     return (
@@ -115,26 +148,66 @@ export default function SimulatorChart({
             content={<CustomTooltip mode={mode} />}
             cursor={{ stroke: 'var(--muted)', strokeWidth: 1, strokeDasharray: '2 4' }}
           />
-          {/* Low–high band */}
-          <Area
-            type="monotone"
-            dataKey="band"
-            stroke="none"
-            fill="var(--accent)"
-            fillOpacity={0.14}
-            isAnimationActive={false}
-            activeDot={false}
-          />
-          {/* Base line */}
-          <Line
-            type="monotone"
-            dataKey="base"
-            stroke="var(--accent)"
-            strokeWidth={1.25}
-            dot={false}
-            activeDot={{ r: 3, fill: 'var(--accent)', stroke: 'var(--background)', strokeWidth: 1 }}
-            isAnimationActive={false}
-          />
+
+          {both ? (
+            <>
+              {/* Shaded inflation gap between nominal and real. */}
+              <Area
+                type="monotone"
+                dataKey="gap"
+                stroke="none"
+                fill="var(--accent)"
+                fillOpacity={0.1}
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              {/* Real line — muted + dashed (what it's worth in today's dollars). */}
+              <Line
+                type="monotone"
+                dataKey="real"
+                stroke="var(--muted)"
+                strokeWidth={1.25}
+                strokeDasharray="4 3"
+                dot={false}
+                activeDot={{ r: 3, fill: 'var(--muted)', stroke: 'var(--background)', strokeWidth: 1 }}
+                isAnimationActive={false}
+              />
+              {/* Nominal line — solid accent (the face-value number). */}
+              <Line
+                type="monotone"
+                dataKey="nominal"
+                stroke="var(--accent)"
+                strokeWidth={1.25}
+                dot={false}
+                activeDot={{ r: 3, fill: 'var(--accent)', stroke: 'var(--background)', strokeWidth: 1 }}
+                isAnimationActive={false}
+              />
+            </>
+          ) : (
+            <>
+              {/* Low–high band */}
+              <Area
+                type="monotone"
+                dataKey="band"
+                stroke="none"
+                fill="var(--accent)"
+                fillOpacity={0.14}
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              {/* Base line */}
+              <Line
+                type="monotone"
+                dataKey={mode === 'real' ? 'real' : 'nominal'}
+                stroke="var(--accent)"
+                strokeWidth={1.25}
+                dot={false}
+                activeDot={{ r: 3, fill: 'var(--accent)', stroke: 'var(--background)', strokeWidth: 1 }}
+                isAnimationActive={false}
+              />
+            </>
+          )}
+
           {markers.map((m, i) => (
             <ReferenceDot
               key={`${m.year}-${i}`}
