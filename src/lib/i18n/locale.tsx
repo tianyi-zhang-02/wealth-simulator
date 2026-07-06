@@ -37,8 +37,17 @@ const serverLocale = (): Locale => 'en';
 
 /** Locale-aware value formatters. Currency stays USD (presets are US-based). */
 export type Formatters = {
+  /** Whole-dollar USD, e.g. $1,234,567 (zh renders US$…). */
   currency0: (n: number) => string;
+  /** Signed whole-dollar USD, e.g. +$1,000 / −$500. */
+  currencyDelta: (n: number) => string;
+  /** Compact number, e.g. 1.2M (zh uses 万/亿) — for chart axes. */
+  compact: (n: number) => string;
+  /** Signed percent to 1 dp, e.g. +12.3%. */
   signedPct1: (n: number) => string;
+  /** Percent, no sign, configurable dp, e.g. 6.5%. */
+  pct: (n: number, digits?: number) => string;
+  /** Rounded whole percent, e.g. 70%. */
   pct0: (n: number) => string;
 };
 
@@ -49,10 +58,16 @@ function makeFormatters(locale: Locale): Formatters {
     currency: 'USD',
     maximumFractionDigits: 0,
   });
+  const compact = new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 });
+  const currency0 = (n: number) => (Number.isFinite(n) ? currency.format(n) : '—');
   return {
-    currency0: (n) => (Number.isFinite(n) ? currency.format(n) : '—'),
+    currency0,
+    currencyDelta: (n) =>
+      Number.isFinite(n) ? `${n >= 0 ? '+' : '−'}${currency0(Math.abs(n))}` : '—',
+    compact: (n) => (Number.isFinite(n) ? compact.format(n) : '—'),
     // Keep the explicit +/− sign the projection UI relies on.
     signedPct1: (n) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`,
+    pct: (n, digits = 1) => `${n.toFixed(digits)}%`,
     pct0: (n) => `${Math.round(n)}%`,
   };
 }

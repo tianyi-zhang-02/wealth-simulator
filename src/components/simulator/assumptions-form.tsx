@@ -2,19 +2,15 @@
 
 import { useMemo, useState } from 'react';
 
+import { useI18n } from '@/lib/i18n/locale';
 import { CAREER_PRESETS } from '@/lib/simulator/career-presets';
 import {
   ROLE_PRESETS,
   searchRolePresets,
-  TRACK_LABELS,
   type RolePreset,
   type RoleTrack,
 } from '@/lib/simulator/rolePresets';
-import {
-  estimateEffectiveTaxRate,
-  STATE_TAXES,
-  TAX_LAST_REVIEWED,
-} from '@/lib/simulator/tax-presets';
+import { estimateEffectiveTaxRate, STATE_TAXES, TAX_LAST_REVIEWED } from '@/lib/simulator/tax-presets';
 import type {
   Assumptions,
   CareerStage,
@@ -54,25 +50,10 @@ function Section({
 }
 
 /**
- * Numeric input that fixes the "type-and-prepend-0" UX bug:
- *
- *   - When the underlying value is `0`, the input renders empty with a `0`
- *     placeholder. Typing puts characters into an empty field instead of
- *     prepending to a literal "0".
- *   - During editing, we keep a local string buffer so the user can clear,
- *     type "-", or type "1." mid-decimal without the parent forcing the
- *     value back to 0 on every keystroke.
- *   - Click/focus selects the entire value so non-zero fields are easy to
- *     replace too.
- *   - On blur, an empty or unparseable buffer propagates as `0` and the
- *     local buffer is released so external prop updates (e.g. the
- *     "Use my actual data" prefill) take over again.
- *
- * The pattern is deliberately controlled-but-tolerant: while the user is
- * actively editing, the local buffer wins; outside of editing, the prop
- * value is the source of truth. This avoids the React 19
- * `set-state-in-effect` lint and the fight-the-cursor bugs that come with
- * naive `useEffect`-based re-syncing.
+ * Numeric input that fixes the "type-and-prepend-0" UX bug. Keeps a local
+ * string buffer while editing so clearing / "-" / "1." mid-decimal don't get
+ * clobbered; on blur an empty/garbage buffer falls back to 0. This avoids the
+ * React `set-state-in-effect` lint and fight-the-cursor re-syncing bugs.
  */
 function NumField({
   label,
@@ -91,10 +72,7 @@ function NumField({
   onChange: (n: number) => void;
   suffix?: string;
 }) {
-  // null = "not currently editing; derive display from prop".
-  // string = "user is editing; use this string verbatim".
   const [draft, setDraft] = useState<string | null>(null);
-
   const display = draft !== null ? draft : value === 0 ? '' : String(value);
 
   return (
@@ -113,17 +91,11 @@ function NumField({
           onChange={(e) => {
             const next = e.target.value;
             setDraft(next);
-            // Only propagate when the buffer parses to a finite number.
-            // Empty / "-" / "1." stay local until blur — propagating those
-            // as 0 would clobber what the user is in the middle of typing.
             if (next.trim() === '') return;
             const n = Number(next);
             if (Number.isFinite(n)) onChange(n);
           }}
           onBlur={() => {
-            // Release the buffer back to prop-derived display. If the user
-            // left it empty or garbage, fall back to 0 so the form's number
-            // shape stays valid.
             if (draft !== null) {
               const trimmed = draft.trim();
               if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
@@ -141,24 +113,16 @@ function NumField({
 }
 
 /**
- * Inline role-library search for a career stage. The user types a query;
- * matching roles render as a small clickable list. Clicking one fills
- * baseSalary / annualRaisePct / bonusPct on the stage; everything stays
- * editable afterward.
- *
- * Deliberately stateless about "which role was picked" — once applied,
- * the stage is just a stage, not a tagged preset. The library is a
- * starting point, not a category. This matches the disclaimer the UI
- * surfaces ("starting estimates, replace with your own figures") — you
- * should never be able to tell, after editing, that someone "is" still
- * the BigLaw associate preset.
+ * Inline role-library browser/search for a career stage. Clicking a role fills
+ * baseSalary / annualRaisePct / bonusPct / annualEquity; everything stays
+ * editable afterward. Role titles/notes are library data (kept as-is);
+ * surrounding chrome is localized.
  */
 function RoleSearchBox({ onPick }: { onPick: (preset: RolePreset) => void }) {
+  const { t, fmt } = useI18n();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
-  // Group the (optionally filtered) roles by track so an empty query is a
-  // browsable, categorized list — not just a search box.
   const groups = useMemo<Array<[RoleTrack, RolePreset[]]>>(() => {
     const byTrack = new Map<RoleTrack, RolePreset[]>();
     for (const r of searchRolePresets(query)) {
@@ -179,9 +143,8 @@ function RoleSearchBox({ onPick }: { onPick: (preset: RolePreset) => void }) {
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        // Delay blur close so an onMouseDown on a result can fire first.
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-        placeholder={`Browse or search ${ROLE_PRESETS.length} roles (e.g. "biglaw", "L5", "MLE")…`}
+        placeholder={t.form.role.searchPlaceholder(ROLE_PRESETS.length)}
         className="border-border focus:border-foreground placeholder:text-muted/50 w-full rounded border bg-transparent px-3 py-2 text-xs outline-none"
       />
       {open ? (
@@ -190,19 +153,18 @@ function RoleSearchBox({ onPick }: { onPick: (preset: RolePreset) => void }) {
           role="listbox"
         >
           {groups.length === 0 ? (
-            <p className="text-muted px-3 py-3 text-[11px]">No roles match “{query}”.</p>
+            <p className="text-muted px-3 py-3 text-[11px]">{t.form.role.noMatch(query)}</p>
           ) : (
             groups.map(([track, roles]) => (
               <div key={track}>
                 <p className="text-muted bg-background/95 sticky top-0 px-3 py-1.5 text-[10px] font-medium tracking-[0.16em] uppercase backdrop-blur">
-                  {TRACK_LABELS[track]}
+                  {t.presets.track[track]}
                 </p>
                 <ul>
                   {roles.map((r) => (
                     <li key={r.id}>
                       <button
                         type="button"
-                        // onMouseDown fires before the input's onBlur.
                         onMouseDown={(e) => {
                           e.preventDefault();
                           onPick(r);
@@ -213,10 +175,10 @@ function RoleSearchBox({ onPick }: { onPick: (preset: RolePreset) => void }) {
                       >
                         <span className="text-foreground text-xs">{r.title}</span>
                         <span className="text-muted nums text-[10px]">
-                          ${r.baseSalary.toLocaleString()} base · +{r.annualRaisePct}% ·{' '}
-                          {r.bonusPct}% bonus
+                          {fmt.currency0(r.baseSalary)} {t.form.role.base} · +{r.annualRaisePct}% ·{' '}
+                          {r.bonusPct}% {t.form.role.bonus}
                           {r.annualEquity > 0
-                            ? ` · $${r.annualEquity.toLocaleString()} equity`
+                            ? ` · ${fmt.currency0(r.annualEquity)} ${t.form.role.equity}`
                             : ''}
                         </span>
                         {r.notes ? (
@@ -264,9 +226,8 @@ function TextField({
 }
 
 /**
- * UI for `assumptions.lifestyle`. Absent state means "use pre-Feature-3
- * behavior" (= flat, 0% creep). To turn lifestyle creep off after enabling
- * it, set the mode dropdown to "Off" — that drops the key back to undefined.
+ * UI for `assumptions.lifestyle`. Absent state = flat 0% creep. Setting the
+ * mode dropdown to "Off" drops the key back to undefined.
  */
 function LifestyleEditor({
   value,
@@ -275,6 +236,7 @@ function LifestyleEditor({
   value: Lifestyle | undefined;
   onChange: (next: Lifestyle | undefined) => void;
 }) {
+  const { t } = useI18n();
   const mode: 'off' | 'flat' | 'incomeScaled' = value?.mode ?? 'off';
 
   function setMode(next: 'off' | 'flat' | 'incomeScaled') {
@@ -292,21 +254,21 @@ function LifestyleEditor({
   return (
     <div className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
-        <span className="text-muted text-xs">Mode</span>
+        <span className="text-muted text-xs">{t.form.lifestyle.mode}</span>
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as 'off' | 'flat' | 'incomeScaled')}
           className="border-border bg-background rounded border px-3 py-2 text-sm"
         >
-          <option value="off">Off — expenses only track inflation</option>
-          <option value="flat">Flat — grow at inflation + a fixed % per year</option>
-          <option value="incomeScaled">Income-scaled — absorb a % of each raise</option>
+          <option value="off">{t.form.lifestyle.off}</option>
+          <option value="flat">{t.form.lifestyle.flat}</option>
+          <option value="incomeScaled">{t.form.lifestyle.incomeScaled}</option>
         </select>
       </label>
 
       {mode === 'flat' && value ? (
         <NumField
-          label="Lifestyle creep above inflation"
+          label={t.form.lifestyle.creepAboveInflation}
           value={value.lifestyleCreepPct}
           step={0.25}
           min={-50}
@@ -318,7 +280,7 @@ function LifestyleEditor({
 
       {mode === 'incomeScaled' && value ? (
         <NumField
-          label="Share of each raise absorbed"
+          label={t.form.lifestyle.shareOfRaise}
           value={value.creepShareOfRaisePct}
           step={5}
           min={0}
@@ -328,19 +290,14 @@ function LifestyleEditor({
         />
       ) : null}
 
-      <p className="text-muted text-[10px]">
-        Lifestyle creep models that spending tends to rise over time. Flat mode adds a steady drift
-        above inflation; income-scaled absorbs a portion of every raise. Off keeps the pre-creep
-        behavior (expenses track inflation only).
-      </p>
+      <p className="text-muted text-[10px]">{t.form.lifestyle.explainer}</p>
     </div>
   );
 }
 
 /**
- * Seeds the single `effectiveTaxRatePct` from a rough state + federal
- * estimate. Illustrative only — see `tax-presets.ts`. The user applies the
- * estimate, then fine-tunes the rate field directly.
+ * Seeds `effectiveTaxRatePct` from a rough state + federal estimate.
+ * Illustrative only — see `tax-presets.ts`.
  */
 function TaxEstimator({
   currentRate,
@@ -349,6 +306,7 @@ function TaxEstimator({
   currentRate: number;
   onApply: (rate: number) => void;
 }) {
+  const { t } = useI18n();
   const [stateCode, setStateCode] = useState('CA');
   const [income, setIncome] = useState('250000');
   const incomeNum = Number(income);
@@ -357,11 +315,11 @@ function TaxEstimator({
   return (
     <div className="border-border flex flex-col gap-2 rounded border p-3">
       <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
-        Estimate from state + income
+        {t.form.taxes.estimateHeading}
       </p>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-muted text-xs">State</span>
+          <span className="text-muted text-xs">{t.form.taxes.state}</span>
           <select
             value={stateCode}
             onChange={(e) => setStateCode(e.target.value)}
@@ -375,7 +333,7 @@ function TaxEstimator({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-muted text-xs">Gross household income</span>
+          <span className="text-muted text-xs">{t.form.taxes.grossIncome}</span>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -393,7 +351,7 @@ function TaxEstimator({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm">
-          Estimated effective ≈ <span className="nums font-medium">{estimate}%</span>
+          {t.form.taxes.estimatedEffective} <span className="nums font-medium">{estimate}%</span>
         </span>
         <button
           type="button"
@@ -401,25 +359,17 @@ function TaxEstimator({
           disabled={estimate === currentRate}
           className="bg-foreground text-background rounded px-3 py-1 text-xs font-medium disabled:opacity-40"
         >
-          Apply
+          {t.form.taxes.apply}
         </button>
       </div>
-      <p className="text-muted text-[10px] italic">
-        Rough estimate, not tax advice — blends a federal effective rate (by income) with a state
-        rate; ignores filing status, deductions, credits, FICA, and local/city taxes. Last reviewed{' '}
-        {TAX_LAST_REVIEWED}. Adjust the rate below to fine-tune.
-      </p>
+      <p className="text-muted text-[10px] italic">{t.form.taxes.note(TAX_LAST_REVIEWED)}</p>
     </div>
   );
 }
 
-export default function AssumptionsForm({
-  value,
-  onChange,
-}: {
-  value: Assumptions;
-  onChange: Setter;
-}) {
+export default function AssumptionsForm({ value, onChange }: { value: Assumptions; onChange: Setter }) {
+  const { t } = useI18n();
+
   function update(patch: Partial<Assumptions>) {
     onChange({ ...value, ...patch });
   }
@@ -434,7 +384,7 @@ export default function AssumptionsForm({
       ...value.people,
       {
         id: newId(),
-        name: `Person ${value.people.length + 1}`,
+        name: t.form.person.defaultName(value.people.length + 1),
         birthYear: 1995,
         careerStages: [],
       },
@@ -458,7 +408,7 @@ export default function AssumptionsForm({
     if (!p) return;
     setStages(personId, [
       ...p.careerStages,
-      { label: 'New stage', startAge: 22, baseSalary: 100_000, annualRaisePct: 3 },
+      { label: t.form.person.newStageLabel, startAge: 22, baseSalary: 100_000, annualRaisePct: 3 },
     ]);
   }
 
@@ -501,17 +451,17 @@ export default function AssumptionsForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <Section title="Horizon">
+      <Section title={t.form.section.horizon}>
         <div className="grid grid-cols-2 gap-3">
           <NumField
-            label="Start year"
+            label={t.form.horizon.startYear}
             value={value.horizonStartYear}
             min={1900}
             max={2200}
             onChange={(n) => update({ horizonStartYear: Math.round(n) })}
           />
           <NumField
-            label="End year"
+            label={t.form.horizon.endYear}
             value={value.horizonEndYear}
             min={1900}
             max={2200}
@@ -520,17 +470,17 @@ export default function AssumptionsForm({
         </div>
       </Section>
 
-      <Section title="Starting state">
+      <Section title={t.form.section.startingState}>
         <div className="grid grid-cols-1 gap-3">
           <NumField
-            label="Starting net worth"
+            label={t.form.starting.netWorth}
             value={value.startingNetWorth}
             step={1000}
             onChange={(n) => update({ startingNetWorth: n })}
             suffix="$"
           />
           <NumField
-            label="Starting invested (subset of net worth)"
+            label={t.form.starting.invested}
             value={value.startingInvested}
             step={1000}
             min={0}
@@ -538,7 +488,7 @@ export default function AssumptionsForm({
             suffix="$"
           />
           <NumField
-            label="Recurring annual household expenses"
+            label={t.form.starting.expenses}
             value={value.recurringAnnualExpenses}
             step={1000}
             min={0}
@@ -548,14 +498,14 @@ export default function AssumptionsForm({
         </div>
       </Section>
 
-      <Section title="Taxes">
+      <Section title={t.form.section.taxes}>
         <div className="flex flex-col gap-3">
           <TaxEstimator
             currentRate={value.effectiveTaxRatePct}
             onApply={(rate) => update({ effectiveTaxRatePct: rate })}
           />
           <NumField
-            label="Effective tax rate (applied to all income)"
+            label={t.form.taxes.effectiveRate}
             value={value.effectiveTaxRatePct}
             step={1}
             min={0}
@@ -563,21 +513,18 @@ export default function AssumptionsForm({
             onChange={(n) => update({ effectiveTaxRatePct: n })}
             suffix="%"
           />
-          <p className="text-muted text-[10px]">
-            Savings is derived — each year you save whatever&apos;s left after tax and spending.
-            There is no separate savings-rate input.
-          </p>
+          <p className="text-muted text-[10px]">{t.form.taxes.savingsDerivedNote}</p>
         </div>
       </Section>
 
-      <Section title="Lifestyle creep" defaultOpen={false}>
+      <Section title={t.form.section.lifestyleCreep} defaultOpen={false}>
         <LifestyleEditor value={value.lifestyle} onChange={(next) => update({ lifestyle: next })} />
       </Section>
 
-      <Section title="Investment & inflation">
+      <Section title={t.form.section.investmentInflation}>
         <div className="grid grid-cols-1 gap-3">
           <NumField
-            label="Inflation"
+            label={t.form.investment.inflation}
             value={value.inflationPct}
             step={0.25}
             onChange={(n) => update({ inflationPct: n })}
@@ -585,47 +532,44 @@ export default function AssumptionsForm({
           />
           <div className="grid grid-cols-3 gap-3">
             <NumField
-              label="Return (low)"
+              label={t.form.investment.returnLow}
               value={value.investment.returnPctLow}
               step={0.25}
               onChange={(n) => update({ investment: { ...value.investment, returnPctLow: n } })}
               suffix="%"
             />
             <NumField
-              label="Return (base)"
+              label={t.form.investment.returnBase}
               value={value.investment.returnPct}
               step={0.25}
               onChange={(n) => update({ investment: { ...value.investment, returnPct: n } })}
               suffix="%"
             />
             <NumField
-              label="Return (high)"
+              label={t.form.investment.returnHigh}
               value={value.investment.returnPctHigh}
               step={0.25}
               onChange={(n) => update({ investment: { ...value.investment, returnPctHigh: n } })}
               suffix="%"
             />
           </div>
-          <p className="text-muted text-[10px]">
-            Constraint: low ≤ base ≤ high. Values outside this range will fail the save-scenario
-            validation.
-          </p>
+          <p className="text-muted text-[10px]">{t.form.investment.constraint}</p>
         </div>
       </Section>
 
-      <Section title={`People & careers (${value.people.length})`}>
+      <Section title={t.form.section.peopleCareers(value.people.length)}>
         <div className="flex flex-col gap-4">
           {value.people.map((p) => (
             <div key={p.id} className="border-border rounded border p-3">
               <div className="grid grid-cols-2 gap-3">
                 <TextField
-                  label="Name"
+                  label={t.form.person.name}
                   value={p.name}
                   maxLength={80}
                   onChange={(s) => patchPerson(p.id, { name: s })}
                 />
                 <NumField
-                  label="Birth year"
+                  label={t.form.person.birthYear}
                   value={p.birthYear}
                   min={1900}
                   max={2200}
@@ -635,7 +579,7 @@ export default function AssumptionsForm({
 
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                  Career stages ({p.careerStages.length})
+                  {t.form.person.careerStages(p.careerStages.length)}
                 </span>
                 <div className="flex items-center gap-2">
                   <select
@@ -649,7 +593,7 @@ export default function AssumptionsForm({
                     }}
                   >
                     <option value="" disabled>
-                      Pick preset…
+                      {t.form.person.pickPreset}
                     </option>
                     {CAREER_PRESETS.map((preset) => (
                       <option key={preset.id} value={preset.id}>
@@ -662,20 +606,20 @@ export default function AssumptionsForm({
                     onClick={() => addStage(p.id)}
                     className="border-border hover:bg-foreground/5 rounded border px-2 py-1 text-[11px]"
                   >
-                    + Stage
+                    {t.form.person.addStage}
                   </button>
                 </div>
               </div>
 
               {p.careerStages.length === 0 ? (
-                <p className="text-muted mt-2 text-xs italic">No career stages yet.</p>
+                <p className="text-muted mt-2 text-xs italic">{t.form.person.noStages}</p>
               ) : (
                 <ul className="mt-3 flex flex-col gap-2">
                   {p.careerStages.map((s, i) => (
                     <li key={i} className="border-border rounded border p-3">
                       <div className="mb-3 flex flex-col gap-1">
                         <span className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                          Role library
+                          {t.form.person.roleLibrary}
                         </span>
                         <RoleSearchBox
                           onPick={(preset) =>
@@ -688,24 +632,24 @@ export default function AssumptionsForm({
                           }
                         />
                         <span className="text-muted text-[10px] italic">
-                          Starting estimates — replace with your own figures.
+                          {t.form.person.startingEstimates}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <TextField
-                          label="Label"
+                          label={t.form.person.label}
                           value={s.label}
                           onChange={(v) => patchStage(p.id, i, { label: v })}
                         />
                         <NumField
-                          label="Starts at age"
+                          label={t.form.person.startsAtAge}
                           value={s.startAge}
                           min={0}
                           max={120}
                           onChange={(v) => patchStage(p.id, i, { startAge: v })}
                         />
                         <NumField
-                          label="Base salary"
+                          label={t.form.person.baseSalary}
                           value={s.baseSalary}
                           step={1000}
                           min={0}
@@ -713,14 +657,14 @@ export default function AssumptionsForm({
                           suffix="$"
                         />
                         <NumField
-                          label="Annual raise"
+                          label={t.form.person.annualRaise}
                           value={s.annualRaisePct}
                           step={0.5}
                           onChange={(v) => patchStage(p.id, i, { annualRaisePct: v })}
                           suffix="%"
                         />
                         <NumField
-                          label="Bonus (% of base)"
+                          label={t.form.person.bonusPct}
                           value={s.bonusPct ?? 0}
                           step={1}
                           min={0}
@@ -728,7 +672,7 @@ export default function AssumptionsForm({
                           suffix="%"
                         />
                         <NumField
-                          label="Equity / RSU per year"
+                          label={t.form.person.equityPerYear}
                           value={s.annualEquity ?? 0}
                           step={5000}
                           min={0}
@@ -741,7 +685,7 @@ export default function AssumptionsForm({
                         onClick={() => removeStage(p.id, i)}
                         className="text-muted hover:text-negative mt-2 text-[11px]"
                       >
-                        Remove stage
+                        {t.form.person.removeStage}
                       </button>
                     </li>
                   ))}
@@ -753,7 +697,7 @@ export default function AssumptionsForm({
                 onClick={() => removePerson(p.id)}
                 className="text-muted hover:text-negative mt-3 text-[11px]"
               >
-                Remove person
+                {t.form.person.removePerson}
               </button>
             </div>
           ))}
@@ -762,25 +706,25 @@ export default function AssumptionsForm({
             onClick={addPerson}
             className="border-border hover:bg-foreground/5 self-start rounded border px-3 py-1.5 text-xs"
           >
-            + Add person
+            {t.form.person.addPerson}
           </button>
         </div>
       </Section>
 
-      <Section title={`Windfalls (${value.windfalls.length})`} defaultOpen={false}>
+      <Section title={t.form.section.windfalls(value.windfalls.length)} defaultOpen={false}>
         <div className="flex flex-col gap-3">
           {value.windfalls.map((w, i) => (
             <div key={i} className="border-border rounded border p-3">
               <div className="grid grid-cols-3 gap-3">
                 <TextField
-                  label="Label"
+                  label={t.form.windfall.label}
                   value={w.label}
                   onChange={(v) =>
                     setWindfalls(value.windfalls.map((x, j) => (j === i ? { ...x, label: v } : x)))
                   }
                 />
                 <NumField
-                  label="Year"
+                  label={t.form.windfall.year}
                   value={w.year}
                   onChange={(v) =>
                     setWindfalls(
@@ -789,7 +733,7 @@ export default function AssumptionsForm({
                   }
                 />
                 <NumField
-                  label="Amount"
+                  label={t.form.windfall.amount}
                   value={w.amount}
                   step={1000}
                   onChange={(v) =>
@@ -803,7 +747,7 @@ export default function AssumptionsForm({
                 onClick={() => setWindfalls(value.windfalls.filter((_, j) => j !== i))}
                 className="text-muted hover:text-negative mt-2 text-[11px]"
               >
-                Remove
+                {t.form.windfall.remove}
               </button>
             </div>
           ))}
@@ -812,17 +756,17 @@ export default function AssumptionsForm({
             onClick={() =>
               setWindfalls([
                 ...value.windfalls,
-                { label: 'Windfall', year: value.horizonStartYear, amount: 10_000 },
+                { label: t.form.windfall.defaultLabel, year: value.horizonStartYear, amount: 10_000 },
               ])
             }
             className="border-border hover:bg-foreground/5 self-start rounded border px-3 py-1.5 text-xs"
           >
-            + Add windfall
+            {t.form.windfall.add}
           </button>
         </div>
       </Section>
 
-      <Section title={`Major expenses (${value.majorExpenses.length})`} defaultOpen={false}>
+      <Section title={t.form.section.majorExpenses(value.majorExpenses.length)} defaultOpen={false}>
         <div className="flex flex-col gap-3">
           {value.majorExpenses.map((e, i) => {
             const isRecurring = !('year' in e);
@@ -830,7 +774,7 @@ export default function AssumptionsForm({
               <div key={i} className="border-border rounded border p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                    {isRecurring ? 'Recurring' : 'One-time'}
+                    {isRecurring ? t.form.major.recurring : t.form.major.oneTime}
                   </span>
                   <button
                     type="button"
@@ -851,24 +795,22 @@ export default function AssumptionsForm({
                       );
                     }}
                   >
-                    switch to {isRecurring ? 'one-time' : 'recurring'}
+                    {isRecurring ? t.form.major.switchToOneTime : t.form.major.switchToRecurring}
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Label"
+                    label={t.form.major.label}
                     value={e.label}
                     onChange={(v) =>
-                      setMajor(
-                        value.majorExpenses.map((x, j) => (j === i ? { ...x, label: v } : x)),
-                      )
+                      setMajor(value.majorExpenses.map((x, j) => (j === i ? { ...x, label: v } : x)))
                     }
                   />
                   {'year' in e ? (
                     <>
                       <NumField
-                        label="Year"
+                        label={t.form.major.year}
                         value={e.year}
                         onChange={(v) =>
                           setMajor(
@@ -879,7 +821,7 @@ export default function AssumptionsForm({
                         }
                       />
                       <NumField
-                        label="Amount"
+                        label={t.form.major.amount}
                         value={e.amount}
                         step={1000}
                         onChange={(v) =>
@@ -895,7 +837,7 @@ export default function AssumptionsForm({
                   ) : (
                     <>
                       <NumField
-                        label="Start year"
+                        label={t.form.major.startYear}
                         value={e.startYear}
                         onChange={(v) =>
                           setMajor(
@@ -906,7 +848,7 @@ export default function AssumptionsForm({
                         }
                       />
                       <NumField
-                        label="Annual amount"
+                        label={t.form.major.annualAmount}
                         value={e.annualAmount}
                         step={1000}
                         onChange={(v) =>
@@ -919,7 +861,7 @@ export default function AssumptionsForm({
                         suffix="$"
                       />
                       <NumField
-                        label="Years"
+                        label={t.form.major.years}
                         value={e.years}
                         min={1}
                         max={200}
@@ -941,7 +883,7 @@ export default function AssumptionsForm({
                   onClick={() => setMajor(value.majorExpenses.filter((_, j) => j !== i))}
                   className="text-muted hover:text-negative mt-2 text-[11px]"
                 >
-                  Remove
+                  {t.form.major.remove}
                 </button>
               </div>
             );
@@ -952,12 +894,12 @@ export default function AssumptionsForm({
               onClick={() =>
                 setMajor([
                   ...value.majorExpenses,
-                  { label: 'One-time expense', year: value.horizonStartYear, amount: 50_000 },
+                  { label: t.form.major.defaultOneTimeLabel, year: value.horizonStartYear, amount: 50_000 },
                 ])
               }
               className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
             >
-              + One-time
+              {t.form.major.addOneTime}
             </button>
             <button
               type="button"
@@ -965,7 +907,7 @@ export default function AssumptionsForm({
                 setMajor([
                   ...value.majorExpenses,
                   {
-                    label: 'Recurring expense',
+                    label: t.form.major.defaultRecurringLabel,
                     startYear: value.horizonStartYear,
                     annualAmount: 10_000,
                     years: 5,
@@ -974,7 +916,7 @@ export default function AssumptionsForm({
               }
               className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
             >
-              + Recurring
+              {t.form.major.addRecurring}
             </button>
           </div>
         </div>

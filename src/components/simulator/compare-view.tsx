@@ -11,15 +11,14 @@ import {
   YAxis,
 } from 'recharts';
 
+import { useI18n } from '@/lib/i18n/locale';
 import { simulate, type YearRow } from '@/lib/simulator/engine';
 import type { Assumptions } from '@/lib/validation/scenarios';
 
 /**
- * Compare-view consumes only `{id, name, assumptions}` from each scenario,
- * not the full server-row shape (`user_id`, `created_at`, ...). Typing it
- * this narrowly lets the public `/sim` page pass in-memory local scenarios
- * without having to fake server-only fields — and the authed Scenario
- * type from `@/lib/types/scenario` is still structurally assignable here.
+ * Compare-view consumes only `{id, name, assumptions}` from each scenario.
+ * Typing it this narrowly lets the page pass in-memory local scenarios
+ * without having to fake server-only fields.
  */
 export type ComparableScenario = {
   id: string;
@@ -35,29 +34,6 @@ const COMPARE_COLORS = [
 ];
 
 const MAX_SELECTED = 3;
-
-function fmtCompact(n: number): string {
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(n);
-}
-
-function fmtCurrency0(n: number): string {
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function fmtDelta(n: number): string {
-  if (!Number.isFinite(n) || n === 0) return '—';
-  const sign = n > 0 ? '+' : '−';
-  return `${sign}${fmtCurrency0(Math.abs(n))}`;
-}
 
 type SimRow = { id: string; name: string; rows: YearRow[]; color: string };
 
@@ -76,6 +52,7 @@ export default function CompareView({
   scenarios: ComparableScenario[];
   onExit: () => void;
 }) {
+  const { t, fmt } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>(
     scenarios.slice(0, Math.min(2, scenarios.length)).map((s) => s.id),
   );
@@ -111,7 +88,6 @@ export default function CompareView({
   // one Line per scenario from the same dataset.
   const chartData = useMemo(() => {
     if (sims.length === 0) return [];
-    // Union of years across selected scenarios.
     const years = new Set<number>();
     for (const sim of sims) for (const r of sim.rows) years.add(r.year);
     const sorted = Array.from(years).sort((a, b) => a - b);
@@ -128,23 +104,23 @@ export default function CompareView({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <p className="text-muted text-[10px] tracking-[0.18em] uppercase">Compare scenarios</p>
+        <p className="text-muted text-[10px] tracking-[0.18em] uppercase">{t.compare.heading}</p>
         <button
           type="button"
           onClick={onExit}
           className="border-border hover:bg-foreground/5 rounded border px-3 py-1.5 text-xs"
         >
-          ← Back to editor
+          {t.compare.backToEditor}
         </button>
       </div>
 
       {scenarios.length === 0 ? (
         <div className="border-border text-muted rounded border border-dashed p-6 text-center text-sm">
-          Save at least one scenario to use compare.
+          {t.compare.saveAtLeastOne}
         </div>
       ) : (
         <>
-          <p className="text-muted text-xs">Pick up to {MAX_SELECTED}.</p>
+          <p className="text-muted text-xs">{t.compare.pickUpTo(MAX_SELECTED)}</p>
           <ul className="flex flex-col gap-1">
             {scenarios.map((s, i) => {
               const checked = selectedIds.includes(s.id);
@@ -171,7 +147,9 @@ export default function CompareView({
                       aria-hidden
                     />
                     <span className="flex-1 truncate">{s.name}</span>
-                    {i === 0 ? <span className="text-muted text-[10px]">most recent</span> : null}
+                    {i === 0 ? (
+                      <span className="text-muted text-[10px]">{t.compare.mostRecent}</span>
+                    ) : null}
                   </label>
                 </li>
               );
@@ -195,7 +173,7 @@ export default function CompareView({
                   minTickGap={24}
                 />
                 <YAxis
-                  tickFormatter={fmtCompact}
+                  tickFormatter={fmt.compact}
                   tick={{ fill: 'var(--muted)', fontSize: 10 }}
                   tickLine={false}
                   axisLine={false}
@@ -212,7 +190,7 @@ export default function CompareView({
                     const n = typeof value === 'number' ? value : Number(value);
                     const key = String(item.dataKey ?? '');
                     const sim = sims.find((s) => s.id === key);
-                    return [fmtCurrency0(n), sim?.name ?? ''];
+                    return [fmt.currency0(n), sim?.name ?? ''];
                   }}
                 />
                 {sims.map((sim) => (
@@ -235,10 +213,10 @@ export default function CompareView({
             <table className="nums w-full min-w-[480px] text-[11px]">
               <thead className="text-muted text-[10px] tracking-wide uppercase">
                 <tr className="border-border border-b">
-                  <th className="px-2 py-2 text-left">Scenario</th>
-                  <th className="px-2 py-2 text-right">End balance</th>
-                  <th className="px-2 py-2 text-right">vs first</th>
-                  <th className="px-2 py-2 text-right">Crosses $1M</th>
+                  <th className="px-2 py-2 text-left">{t.compare.scenario}</th>
+                  <th className="px-2 py-2 text-right">{t.compare.endBalance}</th>
+                  <th className="px-2 py-2 text-right">{t.compare.vsFirst}</th>
+                  <th className="px-2 py-2 text-right">{t.compare.crosses1m}</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +237,7 @@ export default function CompareView({
                           <span className="truncate">{sim.name}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-right">{fmtCurrency0(last.netWorth)}</td>
+                      <td className="px-2 py-1.5 text-right">{fmt.currency0(last.netWorth)}</td>
                       <td
                         className={`px-2 py-1.5 text-right ${
                           i === 0
@@ -271,7 +249,7 @@ export default function CompareView({
                                 : 'text-muted'
                         }`}
                       >
-                        {i === 0 ? '—' : fmtDelta(delta)}
+                        {i === 0 || delta === 0 ? '—' : fmt.currencyDelta(delta)}
                       </td>
                       <td className="px-2 py-1.5 text-right">{cross ?? '—'}</td>
                     </tr>
@@ -280,10 +258,7 @@ export default function CompareView({
               </tbody>
             </table>
           </div>
-          <p className="text-muted text-[10px]">
-            Comparison uses each scenario&apos;s nominal base-return projection.
-            &quot;vs first&quot; is delta against the top-row scenario.
-          </p>
+          <p className="text-muted text-[10px]">{t.compare.note}</p>
         </>
       ) : null}
     </div>
