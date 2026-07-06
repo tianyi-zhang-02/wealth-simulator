@@ -64,6 +64,7 @@ All of this is covered by unit tests (`npm test`). If you change engine behavior
 - `strict: true`, no `any` (use `unknown` + narrow).
 - Tailwind utility-first; dark theme by default (`--background`, `--foreground`, `--accent`, etc. in `globals.css`). Numbers use the `.nums` (tabular) utility.
 - Mobile-first; centered in a `max-w-6xl` column. On large screens the editor is two columns (assumptions left, projection right); on mobile it stacks.
+- **i18n**: the app is bilingual (English / 简体中文). All user-facing copy goes through `src/lib/i18n/messages.ts` via `useI18n()` — **never hard-code a display string**; add every new key to both `en` and `zh` (the `Messages` type makes a missing zh key a compile error), and write the Chinese natively, not as a literal translation. Locale is the `?lang` URL param (no storage). Currency stays USD. Keep `README.zh-CN.md` in sync when the README changes.
 
 ---
 
@@ -73,16 +74,18 @@ All of this is covered by unit tests (`npm test`). If you change engine behavior
 src/
   app/
     page.tsx              server shell (await connection() for CSP nonce) → renders the client
-    simulator-client.tsx  all UI state: scenarios, Projection/Assumptions/Compare tabs, export/import
+    simulator-client.tsx  all UI state: scenarios, live side-by-side editor, export/import; wraps everything in the i18n LocaleProvider
     layout.tsx            fonts + globals + PWA registration
     manifest.ts, icon*.tsx, apple-icon.tsx
   proxy.ts                per-request CSP nonce (the only server-touching code)
   components/
     simulator/            assumptions-form, compare-view, goal-seek-panel, year-table, default-assumptions
     charts/simulator-chart.tsx
+    i18n/lang-switch.tsx  EN · 中文 toggle
     pwa/sw-register.tsx
   lib/
     simulator/            engine, goalSeek, career-presets, rolePresets (+ tests)
+    i18n/                 messages.ts (EN/中文 catalog) + locale.tsx (LocaleProvider/useI18n)
     validation/scenarios.ts
     format/money.ts
 ```
