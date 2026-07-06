@@ -1,5 +1,7 @@
 # Accretia
 
+**English** · [简体中文](README.zh-CN.md)
+
 _Watch your wealth accrete._ A single-page, **client-side** wealth-projection simulator. Project household net worth year by year from your own assumptions — careers, windfalls, major expenses, lifestyle creep, and low/mid/high return bands — and answer "what would it take to hit $X by age Y?".
 
 Everything runs in the browser. **There is no backend, no database, no account, and nothing is stored or sent anywhere.** Refresh and you start clean; use Export / Import to keep a scenario as a JSON file.
@@ -23,6 +25,7 @@ Everything runs in the browser. **There is no backend, no database, no account, 
 - **Nominal / real** toggle, and a year-by-year table.
 - **Export / Import** a scenario as JSON — the only form of persistence (nothing is stored automatically).
 - **Installable PWA**, works offline (it's just static assets + client JS).
+- **Bilingual — English / 简体中文** — native Chinese throughout (not machine-translated), including the role picker and goal-seek. Switch with the header `EN · 中文` toggle or a `?lang=zh` URL; the choice lives in the URL, so nothing is stored.
 
 The layout is a **live side-by-side editor**: assumptions on the left, the projection (final balance + chart + goal-seek) pinned on the right, so editing an assumption updates the chart in real time. **Compare** is a toggle in the scenario bar. On mobile it stacks (projection on top).
 
@@ -72,16 +75,18 @@ Tiny by design.
 src/
   app/
     page.tsx              the app: renders the simulator client
-    simulator-client.tsx  all UI state (scenarios, tabs, export/import)
+    simulator-client.tsx  all UI state (scenarios, live editor, export/import)
     layout.tsx            fonts + globals + PWA registration
     manifest.ts, icon*.tsx, apple-icon.tsx   PWA assets
   proxy.ts                per-request CSP nonce (the only "server" code)
   components/
     simulator/            assumptions form, compare, goal-seek panel, year table
     charts/simulator-chart.tsx
+    i18n/lang-switch.tsx  EN · 中文 toggle
     pwa/sw-register.tsx
   lib/
     simulator/            pure engine + goal-seek solver + presets (+ tests)
+    i18n/                 EN/中文 message catalog + locale provider
     validation/scenarios.ts   the Zod schema the engine reads
     format/money.ts
 ```

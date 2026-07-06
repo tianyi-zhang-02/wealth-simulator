@@ -6,6 +6,25 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Native bilingual — English / 简体中文
+
+- **Added** full native Chinese (简体中文) support, built bilingual from the
+  start so the copy reads as _written_, not translated (净资产 / 复利 /
+  税后收入 / 隐含储蓄率 / 目标求解 …). An `EN · 中文` switch sits in the
+  header, and there is now a Chinese README (`README.zh-CN.md`) linked from
+  the English one.
+- **Changed** the active language lives in the `?lang=zh` URL param —
+  shareable and refresh-safe with **no storage** (consistent with the app's
+  no-storage rule); the browser language is auto-detected on first load
+  (`useSyncExternalStore`, SSR-safe). Currency stays USD (presets are
+  US-based; zh renders `US$…` and chart axes use 万/亿 via `Intl`).
+- **Added** `src/lib/i18n/` — a typed EN/ZH message catalog (`Messages` is
+  derived from `en`, so a missing zh key is a compile error) + locale-aware
+  `Intl` formatters, plus `components/i18n/lang-switch.tsx`. Every
+  interactive surface (assumptions form, goal-seek, tables, compare, chart)
+  is translated. Role titles / US state names stay as library data in
+  English (Chinese tech usage commonly keeps these untranslated).
+
 ### Renamed to Accretia
 
 - **Changed** the project/repo name to **Accretia** — from _accretion_,
