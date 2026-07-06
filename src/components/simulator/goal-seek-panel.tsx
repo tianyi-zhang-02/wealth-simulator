@@ -2,59 +2,22 @@
 
 import { useState } from 'react';
 
-import {
-  solveGoalSeek,
-  type GoalSeekResult,
-  type SolveResult,
-} from '@/lib/simulator/goalSeek';
+import { useI18n } from '@/lib/i18n/locale';
+import { solveGoalSeek, type GoalSeekResult, type SolveResult } from '@/lib/simulator/goalSeek';
 import type { Assumptions, SimTarget } from '@/lib/validation/scenarios';
 
 /**
  * Goal-seek display panel. Spec contract:
  *
- *   - When target is absent: surface a small "set a target to enable" hint
- *     so the feature is discoverable but doesn't shout.
+ *   - When target is absent: surface a small "set a target to enable" hint.
  *   - When already on track: celebrate the surplus, don't compute levers.
  *   - When short: compute all 4 levers and display them side by side.
  *
- * Computation runs on demand (button + manual recalc) rather than every
- * keystroke — bisection is cheap individually but four levers × 40 iters
- * × an engine run each is enough to feel jittery if recomputed on every
- * input change while the user is typing.
+ * Computation runs on demand (button) rather than every keystroke.
  *
- * Copy convention (spec):
- *   - Conditional ("saving $X/mo more would reach the target") not
- *     instructional ("you should save more").
- *   - Honest about "not reachable" cases ("not reachable by spending
- *     alone") instead of returning a misleading boundary value.
+ * Copy convention: conditional ("saving $X/mo more would reach the target"),
+ * honest about "not reachable" cases.
  */
-function fmtMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(Math.round(n));
-}
-
-function fmtMoneyDelta(n: number): string {
-  const abs = Math.abs(n);
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(Math.round(abs));
-  return `${n >= 0 ? '+' : '−'}${formatted}`;
-}
-
-function fmtPct(n: number, digits = 1): string {
-  return `${n.toFixed(digits)}%`;
-}
-
-function fmtYears(n: number): string {
-  if (Math.abs(n) < 0.05) return '0 yrs';
-  return `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)} yrs`;
-}
-
 function NumField({
   label,
   value,
@@ -88,10 +51,10 @@ function NumField({
           max={max}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => {
-            const t = e.target.value;
-            setDraft(t);
-            if (t.trim() === '') return;
-            const n = Number(t);
+            const tval = e.target.value;
+            setDraft(tval);
+            if (tval.trim() === '') return;
+            const n = Number(tval);
             if (Number.isFinite(n)) onChange(n);
           }}
           onBlur={() => {
@@ -144,6 +107,7 @@ export default function GoalSeekPanel({
   assumptions: Assumptions;
   onChange: (next: Assumptions) => void;
 }) {
+  const { t } = useI18n();
   const [result, setResult] = useState<GoalSeekResult | null>(null);
   const hasTarget = !!assumptions.target;
   const hasPeople = assumptions.people.length > 0;
@@ -159,7 +123,7 @@ export default function GoalSeekPanel({
   return (
     <section className="border-border rounded border p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-muted text-[10px] tracking-[0.18em] uppercase">Goal-seek target</p>
+        <p className="text-muted text-[10px] tracking-[0.18em] uppercase">{t.goalSeek.heading}</p>
         <button
           type="button"
           onClick={() => {
@@ -173,36 +137,27 @@ export default function GoalSeekPanel({
           }}
           className="text-muted hover:text-foreground text-[11px]"
         >
-          {hasTarget ? 'Clear target' : 'Set a target'}
+          {hasTarget ? t.goalSeek.clearTarget : t.goalSeek.setTarget}
         </button>
       </div>
 
       {!hasTarget ? (
-        <p className="text-muted mt-2 text-xs">
-          Set a target net worth at an age (e.g. $5M by 50) and the simulator
-          will show how much each lever — savings, return, spending, or time —
-          would have to change on its own to get there.
-        </p>
+        <p className="text-muted mt-2 text-xs">{t.goalSeek.hintNoTarget}</p>
       ) : !hasPeople ? (
-        <p className="text-muted mt-2 text-xs italic">
-          Add at least one person under &ldquo;People &amp; careers&rdquo; so the
-          target age can resolve to a year.
-        </p>
+        <p className="text-muted mt-2 text-xs italic">{t.goalSeek.hintNoPeople}</p>
       ) : (
         <>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <NumField
-              label="Target amount"
+              label={t.goalSeek.targetAmount}
               value={assumptions.target!.amount}
               step={50_000}
               min={0}
               suffix="$"
-              onChange={(n) =>
-                setTarget({ amount: Math.max(0, n), age: assumptions.target!.age })
-              }
+              onChange={(n) => setTarget({ amount: Math.max(0, n), age: assumptions.target!.age })}
             />
             <NumField
-              label="By age"
+              label={t.goalSeek.byAge}
               value={assumptions.target!.age}
               step={1}
               min={0}
@@ -220,16 +175,12 @@ export default function GoalSeekPanel({
             onClick={recompute}
             className="bg-foreground text-background mt-3 rounded px-3 py-1.5 text-xs font-medium"
           >
-            Compute gap & levers
+            {t.goalSeek.compute}
           </button>
 
           {result ? <GoalSeekDisplay result={result} /> : null}
 
-          <p className="text-muted mt-3 text-[10px] italic">
-            Estimates based on your assumptions, not a recommendation. Each
-            lever shows what that one variable would need to be — alone —
-            to reach the target, holding everything else fixed.
-          </p>
+          <p className="text-muted mt-3 text-[10px] italic">{t.goalSeek.disclaimer}</p>
         </>
       )}
     </section>
@@ -237,15 +188,20 @@ export default function GoalSeekPanel({
 }
 
 function GoalSeekDisplay({ result }: { result: GoalSeekResult }) {
+  const { t, fmt } = useI18n();
   if (result.kind === 'no-target' || result.kind === 'no-people') return null;
 
   if (result.kind === 'on-track') {
     return (
       <div className="border-border mt-3 flex flex-col gap-1 rounded border p-3">
-        <p className="text-positive text-xs font-medium">On track ✓</p>
+        <p className="text-positive text-xs font-medium">{t.goalSeek.onTrack}</p>
         <p className="text-muted nums text-[11px]">
-          Projected {fmtMoney(result.projected)} by age {result.targetAge} —
-          surplus of {fmtMoney(result.surplus)} above your target of {fmtMoney(result.target)}.
+          {t.goalSeek.onTrackDetail(
+            fmt.currency0(result.projected),
+            result.targetAge,
+            fmt.currency0(result.surplus),
+            fmt.currency0(result.target),
+          )}
         </p>
       </div>
     );
@@ -255,18 +211,16 @@ function GoalSeekDisplay({ result }: { result: GoalSeekResult }) {
     <div className="border-border mt-3 flex flex-col gap-2 rounded border p-3">
       <div className="flex flex-col gap-0.5">
         <p className="text-foreground text-xs">
-          Projected {fmtMoney(result.projected)} by age {result.targetAge}
+          {t.goalSeek.projectedBy(fmt.currency0(result.projected), result.targetAge)}
         </p>
         <p className="text-negative text-xs">
-          Short by {fmtMoney(result.gap)} of the {fmtMoney(result.target)} target.
+          {t.goalSeek.shortBy(fmt.currency0(result.gap), fmt.currency0(result.target))}
         </p>
       </div>
-      <p className="text-muted mt-1 text-[11px]">
-        Any ONE of these alone would close the gap (everything else held fixed):
-      </p>
+      <p className="text-muted mt-1 text-[11px]">{t.goalSeek.anyOne}</p>
       <ul className="flex flex-col gap-1.5">
         <LeverRow
-          label="Save extra"
+          label={t.goalSeek.leverSaveExtra}
           result={
             result.levers.extraMonthlyContribution.ok
               ? {
@@ -277,17 +231,17 @@ function GoalSeekDisplay({ result }: { result: GoalSeekResult }) {
                 }
               : result.levers.extraMonthlyContribution
           }
-          formatValue={(v) => `${fmtMoney(v)}/mo`}
-          formatDelta={(d) => `${fmtMoneyDelta(d)}/mo vs now`}
+          formatValue={(v) => t.goalSeek.perMonth(fmt.currency0(v))}
+          formatDelta={(d) => t.goalSeek.perMonthVsNow(fmt.currencyDelta(d))}
         />
         <LeverRow
-          label="Average return"
+          label={t.goalSeek.leverReturn}
           result={result.levers.returnPct}
-          formatValue={(v) => fmtPct(v)}
-          formatDelta={(d) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} pts`}
+          formatValue={(v) => fmt.pct(v)}
+          formatDelta={(d) => t.goalSeek.pointsDelta(d)}
         />
         <LeverRow
-          label="Spend less"
+          label={t.goalSeek.leverSpendLess}
           result={
             result.levers.annualExpenses.ok
               ? {
@@ -297,14 +251,14 @@ function GoalSeekDisplay({ result }: { result: GoalSeekResult }) {
                 }
               : result.levers.annualExpenses
           }
-          formatValue={(v) => `${fmtMoney(v)}/mo`}
-          formatDelta={(d) => `${fmtMoneyDelta(d)}/mo vs now`}
+          formatValue={(v) => t.goalSeek.perMonth(fmt.currency0(v))}
+          formatDelta={(d) => t.goalSeek.perMonthVsNow(fmt.currencyDelta(d))}
         />
         <LeverRow
-          label="Push target age"
+          label={t.goalSeek.leverPushAge}
           result={result.levers.targetAge}
-          formatValue={(v) => `age ${v.toFixed(1)}`}
-          formatDelta={(d) => fmtYears(d)}
+          formatValue={(v) => t.goalSeek.ageValue(v)}
+          formatDelta={(d) => t.goalSeek.yearsDelta(d)}
         />
       </ul>
     </div>

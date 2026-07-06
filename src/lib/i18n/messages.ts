@@ -1,0 +1,439 @@
+/**
+ * i18n message catalog. Two locales: English and 简体中文.
+ *
+ * The Chinese copy is written natively — finance terms a Chinese speaker
+ * actually uses (净资产 / 复利 / 税后收入 / 通胀 / 回撤 / 波动率), not a
+ * word-for-word rendering of the English. When you add a string, add it to
+ * BOTH `en` and `zh`; the `Messages` type (derived from `en`) makes a
+ * missing Chinese key a compile error.
+ *
+ * No network, no library — this is a plain object bundled at build time.
+ */
+
+export type Locale = 'en' | 'zh';
+export const LOCALES: readonly Locale[] = ['en', 'zh'] as const;
+
+/** Human label for the language switcher (each shown in its own script). */
+export const LOCALE_LABEL: Record<Locale, string> = { en: 'EN', zh: '中文' };
+
+const en = {
+  app: {
+    // Brand name — intentionally NOT translated in either locale.
+    title: 'Accretia',
+    tagline:
+      'Project net worth year by year from your own assumptions and watch it compound. Runs entirely in your browser — nothing is saved or sent anywhere. Use Export / Import to keep a scenario as a file.',
+  },
+  scenarioBar: {
+    scenarioAria: 'Scenario',
+    newScenario: '+ New',
+    nameAria: 'Scenario name',
+    duplicate: 'Duplicate',
+    exportJson: 'Export JSON',
+    importJson: 'Import JSON',
+    backToEditor: '← Back to editor',
+    compare: 'Compare',
+    remove: 'Remove',
+    downloaded: 'Downloaded.',
+    imported: 'Imported.',
+    invalidScenario: 'That file is not a valid scenario.',
+    unreadableFile: 'Could not read that file.',
+    defaultName: (n: number) => `Scenario ${n}`,
+    copySuffix: (name: string) => `${name} (copy)`,
+    importedName: 'Imported scenario',
+  },
+  projection: {
+    assumptionsLabel: 'Assumptions',
+    finalBalance: (year: number) => `Final balance · ${year}`,
+    inTodaysDollars: (real: string, pct: string) => `${real} in today's dollars · ${pct} over horizon`,
+    impliedSavings: (pct: string) => `Implied savings rate (year 1): ${pct} of after-tax income`,
+    bandHeading: 'Projection · low–high band',
+    nominal: 'Nominal',
+    real: 'Real',
+    computeError: 'Could not compute projection — check inputs.',
+    bandCaption:
+      'Band = pessimistic to optimistic return. Green dots are windfall years; red dots are major-expense years.',
+  },
+  form: {
+    section: {
+      horizon: 'Horizon',
+      startingState: 'Starting state',
+      taxes: 'Taxes',
+      lifestyleCreep: 'Lifestyle creep',
+      investmentInflation: 'Investment & inflation',
+      peopleCareers: (n: number) => `People & careers (${n})`,
+      windfalls: (n: number) => `Windfalls (${n})`,
+      majorExpenses: (n: number) => `Major expenses (${n})`,
+    },
+    horizon: { startYear: 'Start year', endYear: 'End year' },
+    starting: {
+      netWorth: 'Starting net worth',
+      invested: 'Starting invested (subset of net worth)',
+      expenses: 'Recurring annual household expenses',
+    },
+    taxes: {
+      estimateHeading: 'Estimate from state + income',
+      state: 'State',
+      grossIncome: 'Gross household income',
+      estimatedEffective: 'Estimated effective ≈',
+      apply: 'Apply',
+      note: (date: string) =>
+        `Rough estimate, not tax advice — blends a federal effective rate (by income) with a state rate; ignores filing status, deductions, credits, FICA, and local/city taxes. Last reviewed ${date}. Adjust the rate below to fine-tune.`,
+      effectiveRate: 'Effective tax rate (applied to all income)',
+      savingsDerivedNote:
+        'Savings is derived — each year you save whatever’s left after tax and spending. There is no separate savings-rate input.',
+    },
+    lifestyle: {
+      mode: 'Mode',
+      off: 'Off — expenses only track inflation',
+      flat: 'Flat — grow at inflation + a fixed % per year',
+      incomeScaled: 'Income-scaled — absorb a % of each raise',
+      creepAboveInflation: 'Lifestyle creep above inflation',
+      shareOfRaise: 'Share of each raise absorbed',
+      explainer:
+        'Lifestyle creep models that spending tends to rise over time. Flat mode adds a steady drift above inflation; income-scaled absorbs a portion of every raise. Off keeps the pre-creep behavior (expenses track inflation only).',
+    },
+    investment: {
+      inflation: 'Inflation',
+      returnLow: 'Return (low)',
+      returnBase: 'Return (base)',
+      returnHigh: 'Return (high)',
+      constraint:
+        'Constraint: low ≤ base ≤ high. Values outside this range will fail the save-scenario validation.',
+    },
+    person: {
+      name: 'Name',
+      birthYear: 'Birth year',
+      careerStages: (n: number) => `Career stages (${n})`,
+      pickPreset: 'Pick preset…',
+      addStage: '+ Stage',
+      noStages: 'No career stages yet.',
+      roleLibrary: 'Role library',
+      startingEstimates: 'Starting estimates — replace with your own figures.',
+      label: 'Label',
+      startsAtAge: 'Starts at age',
+      baseSalary: 'Base salary',
+      annualRaise: 'Annual raise',
+      bonusPct: 'Bonus (% of base)',
+      equityPerYear: 'Equity / RSU per year',
+      removeStage: 'Remove stage',
+      removePerson: 'Remove person',
+      addPerson: '+ Add person',
+      defaultName: (n: number) => `Person ${n}`,
+      newStageLabel: 'New stage',
+    },
+    role: {
+      searchPlaceholder: (count: number) => `Browse or search ${count} roles (e.g. "biglaw", "L5", "MLE")…`,
+      noMatch: (query: string) => `No roles match “${query}”.`,
+      base: 'base',
+      bonus: 'bonus',
+      equity: 'equity',
+    },
+    windfall: {
+      label: 'Label',
+      year: 'Year',
+      amount: 'Amount',
+      remove: 'Remove',
+      add: '+ Add windfall',
+      defaultLabel: 'Windfall',
+    },
+    major: {
+      recurring: 'Recurring',
+      oneTime: 'One-time',
+      switchToOneTime: 'switch to one-time',
+      switchToRecurring: 'switch to recurring',
+      label: 'Label',
+      year: 'Year',
+      amount: 'Amount',
+      startYear: 'Start year',
+      annualAmount: 'Annual amount',
+      years: 'Years',
+      remove: 'Remove',
+      addOneTime: '+ One-time',
+      addRecurring: '+ Recurring',
+      defaultOneTimeLabel: 'One-time expense',
+      defaultRecurringLabel: 'Recurring expense',
+    },
+  },
+  goalSeek: {
+    heading: 'Goal-seek target',
+    setTarget: 'Set a target',
+    clearTarget: 'Clear target',
+    hintNoTarget:
+      'Set a target net worth at an age (e.g. $5M by 50) and the simulator will show how much each lever — savings, return, spending, or time — would have to change on its own to get there.',
+    hintNoPeople:
+      'Add at least one person under “People & careers” so the target age can resolve to a year.',
+    targetAmount: 'Target amount',
+    byAge: 'By age',
+    compute: 'Compute gap & levers',
+    disclaimer:
+      'Estimates based on your assumptions, not a recommendation. Each lever shows what that one variable would need to be — alone — to reach the target, holding everything else fixed.',
+    onTrack: 'On track ✓',
+    onTrackDetail: (projected: string, age: number, surplus: string, target: string) =>
+      `Projected ${projected} by age ${age} — surplus of ${surplus} above your target of ${target}.`,
+    projectedBy: (projected: string, age: number) => `Projected ${projected} by age ${age}`,
+    shortBy: (gap: string, target: string) => `Short by ${gap} of the ${target} target.`,
+    anyOne: 'Any ONE of these alone would close the gap (everything else held fixed):',
+    leverSaveExtra: 'Save extra',
+    leverReturn: 'Average return',
+    leverSpendLess: 'Spend less',
+    leverPushAge: 'Push target age',
+    perMonth: (money: string) => `${money}/mo`,
+    perMonthVsNow: (moneyDelta: string) => `${moneyDelta}/mo vs now`,
+    pointsDelta: (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} pts`,
+    ageValue: (v: number) => `age ${v.toFixed(1)}`,
+    yearsDelta: (d: number) => (Math.abs(d) < 0.05 ? '0 yrs' : `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} yrs`),
+  },
+  table: {
+    heading: 'Year by year',
+    show: 'Show table',
+    hide: 'Hide table',
+    year: 'Year',
+    ages: 'Ages',
+    gross: 'Gross',
+    afterTax: 'After tax',
+    expenses: 'Expenses',
+    windfalls: 'Windfalls',
+    saved: 'Saved',
+    growth: 'Growth',
+    netWorth: 'Net worth',
+    real: 'Real',
+  },
+  compare: {
+    heading: 'Compare scenarios',
+    backToEditor: '← Back to editor',
+    saveAtLeastOne: 'Save at least one scenario to use compare.',
+    pickUpTo: (n: number) => `Pick up to ${n}.`,
+    mostRecent: 'most recent',
+    scenario: 'Scenario',
+    endBalance: 'End balance',
+    vsFirst: 'vs first',
+    crosses1m: 'Crosses $1M',
+    note: 'Comparison uses each scenario’s nominal base-return projection. "vs first" is delta against the top-row scenario.',
+  },
+  chart: {
+    adjustHorizon: 'Adjust the horizon to see the projection.',
+    todaysDollars: 'today’s dollars',
+    nominal: 'nominal',
+  },
+  presets: {
+    // Career-track headers in the role picker.
+    track: { legal: 'Legal', swe: 'Software / ML' },
+  },
+  footer: {
+    disclaimer:
+      'Estimates based on your assumptions. Not a prediction or financial advice. Career-role salaries in the role library are illustrative defaults, not market data — replace with your own figures.',
+  },
+};
+
+/**
+ * All locales must match the English shape. `en` is intentionally NOT `as
+ * const` so its fields widen to `string` — the Chinese catalog matches the
+ * shape (keys + value types) without having to reproduce exact literals.
+ */
+export type Messages = typeof en;
+
+const zh: Messages = {
+  app: {
+    title: 'Accretia',
+    tagline:
+      '根据你自己的假设逐年推算净资产，见证复利的力量。全部运算都在本地浏览器完成——不保存、也不上传任何数据。用「导出／导入」把方案存成文件。',
+  },
+  scenarioBar: {
+    scenarioAria: '方案',
+    newScenario: '+ 新建',
+    nameAria: '方案名称',
+    duplicate: '复制',
+    exportJson: '导出 JSON',
+    importJson: '导入 JSON',
+    backToEditor: '← 返回编辑',
+    compare: '对比',
+    remove: '删除',
+    downloaded: '已下载。',
+    imported: '已导入。',
+    invalidScenario: '该文件不是有效的方案。',
+    unreadableFile: '无法读取该文件。',
+    defaultName: (n: number) => `方案 ${n}`,
+    copySuffix: (name: string) => `${name}（副本）`,
+    importedName: '导入的方案',
+  },
+  projection: {
+    assumptionsLabel: '假设条件',
+    finalBalance: (year: number) => `期末净资产 · ${year}`,
+    inTodaysDollars: (real: string, pct: string) => `${real}（按今日购买力）· 期间累计 ${pct}`,
+    impliedSavings: (pct: string) => `隐含储蓄率（第 1 年）：税后收入的 ${pct}`,
+    bandHeading: '推算 · 悲观–乐观区间',
+    nominal: '名义',
+    real: '实际',
+    computeError: '无法计算推算结果——请检查输入。',
+    bandCaption: '区间表示从悲观到乐观的收益率。绿点为额外收入年份，红点为大额支出年份。',
+  },
+  form: {
+    section: {
+      horizon: '推算区间',
+      startingState: '初始状态',
+      taxes: '税务',
+      lifestyleCreep: '消费升级',
+      investmentInflation: '投资与通胀',
+      peopleCareers: (n: number) => `成员与职业（${n}）`,
+      windfalls: (n: number) => `额外收入（${n}）`,
+      majorExpenses: (n: number) => `大额支出（${n}）`,
+    },
+    horizon: { startYear: '起始年份', endYear: '结束年份' },
+    starting: {
+      netWorth: '初始净资产',
+      invested: '初始已投资金额（净资产的一部分）',
+      expenses: '每年固定家庭开支',
+    },
+    taxes: {
+      estimateHeading: '按州与收入估算',
+      state: '所在州',
+      grossIncome: '家庭税前总收入',
+      estimatedEffective: '估算实际税率 ≈',
+      apply: '应用',
+      note: (date: string) =>
+        `仅为粗略估算，不构成税务建议——它把联邦实际税率（按收入）与州税率相加；未考虑申报身份、扣除、抵免、FICA 及地方／市税。最近更新于 ${date}。可在下方微调税率。`,
+      effectiveRate: '实际税率（适用于全部收入）',
+      savingsDerivedNote:
+        '储蓄为推导值——每年扣除税款和开支后剩下多少就存多少，没有单独的储蓄率输入项。',
+    },
+    lifestyle: {
+      mode: '模式',
+      off: '关闭——开支仅随通胀变动',
+      flat: '固定——每年在通胀之上再增加固定百分比',
+      incomeScaled: '随收入——每次加薪吸收一定比例',
+      creepAboveInflation: '通胀之外的消费升级',
+      shareOfRaise: '每次加薪被吸收的比例',
+      explainer:
+        '消费升级用来刻画开支往往随时间上升的现象。「固定」在通胀之上叠加稳定的增幅；「随收入」把每次加薪的一部分转为开支；「关闭」则保持不升级（开支仅随通胀）。',
+    },
+    investment: {
+      inflation: '通胀',
+      returnLow: '收益率（低）',
+      returnBase: '收益率（中）',
+      returnHigh: '收益率（高）',
+      constraint: '约束：低 ≤ 中 ≤ 高。超出此范围将无法通过方案校验。',
+    },
+    person: {
+      name: '姓名',
+      birthYear: '出生年份',
+      careerStages: (n: number) => `职业阶段（${n}）`,
+      pickPreset: '选择预设…',
+      addStage: '+ 阶段',
+      noStages: '尚无职业阶段。',
+      roleLibrary: '职业库',
+      startingEstimates: '仅为起始参考值——请替换为你自己的数字。',
+      label: '名称',
+      startsAtAge: '起始年龄',
+      baseSalary: '基本工资',
+      annualRaise: '年度涨薪',
+      bonusPct: '奖金（基本工资的百分比）',
+      equityPerYear: '每年股权／RSU',
+      removeStage: '删除阶段',
+      removePerson: '删除成员',
+      addPerson: '+ 添加成员',
+      defaultName: (n: number) => `成员 ${n}`,
+      newStageLabel: '新阶段',
+    },
+    role: {
+      searchPlaceholder: (count: number) => `浏览或搜索 ${count} 个职业（如 “biglaw”、“L5”、“MLE”）…`,
+      noMatch: (query: string) => `没有匹配 “${query}” 的职业。`,
+      base: '底薪',
+      bonus: '奖金',
+      equity: '股权',
+    },
+    windfall: {
+      label: '名称',
+      year: '年份',
+      amount: '金额',
+      remove: '删除',
+      add: '+ 添加额外收入',
+      defaultLabel: '额外收入',
+    },
+    major: {
+      recurring: '周期性',
+      oneTime: '一次性',
+      switchToOneTime: '改为一次性',
+      switchToRecurring: '改为周期性',
+      label: '名称',
+      year: '年份',
+      amount: '金额',
+      startYear: '起始年份',
+      annualAmount: '每年金额',
+      years: '持续年数',
+      remove: '删除',
+      addOneTime: '+ 一次性',
+      addRecurring: '+ 周期性',
+      defaultOneTimeLabel: '一次性支出',
+      defaultRecurringLabel: '周期性支出',
+    },
+  },
+  goalSeek: {
+    heading: '目标求解',
+    setTarget: '设定目标',
+    clearTarget: '清除目标',
+    hintNoTarget:
+      '设定某个年龄要达到的目标净资产（如 50 岁前 500 万美元），模拟器会分别算出：单靠储蓄、收益率、开支或时间中的某一项，需要变到多少才能达标。',
+    hintNoPeople: '请先在「成员与职业」中至少添加一位成员，目标年龄才能对应到具体年份。',
+    targetAmount: '目标金额',
+    byAge: '目标年龄',
+    compute: '计算缺口与可调项',
+    disclaimer:
+      '结果基于你的假设估算，并非建议。每个可调项显示的是：在其余条件都不变的前提下，仅凭该项达到目标所需的取值。',
+    onTrack: '进度达标 ✓',
+    onTrackDetail: (projected: string, age: number, surplus: string, target: string) =>
+      `预计在 ${age} 岁达到 ${projected}——比目标 ${target} 多出 ${surplus}。`,
+    projectedBy: (projected: string, age: number) => `预计在 ${age} 岁达到 ${projected}`,
+    shortBy: (gap: string, target: string) => `距离目标 ${target} 还差 ${gap}。`,
+    anyOne: '下列任一项单独调整即可补上缺口（其余条件保持不变）：',
+    leverSaveExtra: '多存钱',
+    leverReturn: '平均收益率',
+    leverSpendLess: '少花钱',
+    leverPushAge: '推迟目标年龄',
+    perMonth: (money: string) => `${money}/月`,
+    perMonthVsNow: (moneyDelta: string) => `${moneyDelta}/月（较当前）`,
+    pointsDelta: (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} 个百分点`,
+    ageValue: (v: number) => `${v.toFixed(1)} 岁`,
+    yearsDelta: (d: number) => (Math.abs(d) < 0.05 ? '0 年' : `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} 年`),
+  },
+  table: {
+    heading: '逐年明细',
+    show: '显示表格',
+    hide: '隐藏表格',
+    year: '年份',
+    ages: '年龄',
+    gross: '税前收入',
+    afterTax: '税后收入',
+    expenses: '开支',
+    windfalls: '额外收入',
+    saved: '储蓄',
+    growth: '投资增值',
+    netWorth: '净资产',
+    real: '实际购买力',
+  },
+  compare: {
+    heading: '方案对比',
+    backToEditor: '← 返回编辑',
+    saveAtLeastOne: '请至少保存一个方案后再进行对比。',
+    pickUpTo: (n: number) => `最多选择 ${n} 个。`,
+    mostRecent: '最新',
+    scenario: '方案',
+    endBalance: '期末净资产',
+    vsFirst: '相对第一个',
+    crosses1m: '突破 $1M',
+    note: '对比使用各方案的名义中性收益推算。「相对第一个」为与首行方案的差额。',
+  },
+  chart: {
+    adjustHorizon: '调整推算区间以查看结果。',
+    todaysDollars: '今日购买力',
+    nominal: '名义',
+  },
+  presets: {
+    track: { legal: '法律', swe: '软件 / 机器学习' },
+  },
+  footer: {
+    disclaimer:
+      '结果基于你的假设估算，并非预测，也不构成投资建议。职业库中的薪资仅为示例默认值，而非市场数据——请替换为你自己的数字。',
+  },
+};
+
+export const MESSAGES: Record<Locale, Messages> = { en, zh };

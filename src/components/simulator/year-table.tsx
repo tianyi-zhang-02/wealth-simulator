@@ -1,18 +1,8 @@
 'use client';
 
+import { useI18n } from '@/lib/i18n/locale';
 import type { YearRow } from '@/lib/simulator/engine';
 import type { Person } from '@/lib/validation/scenarios';
-
-function fmt(n: number): string {
-  if (!Number.isFinite(n)) return '—';
-  // Sub-1k numbers can confuse the eye in a column of millions; cap.
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    signDisplay: 'auto',
-  }).format(n);
-}
 
 export default function YearTable({
   rows,
@@ -24,6 +14,7 @@ export default function YearTable({
   /** Years to highlight (career switch, windfall, major expense). */
   highlightYears: Set<number>;
 }) {
+  const { t, fmt } = useI18n();
   if (rows.length === 0) return null;
 
   return (
@@ -31,16 +22,16 @@ export default function YearTable({
       <table className="nums w-full min-w-[640px] text-[11px]">
         <thead className="text-muted text-[10px] tracking-wide uppercase">
           <tr className="border-border border-b">
-            <th className="px-2 py-2 text-left">Year</th>
-            {people.length > 0 ? <th className="px-2 py-2 text-left">Ages</th> : null}
-            <th className="px-2 py-2 text-right">Gross</th>
-            <th className="px-2 py-2 text-right">After tax</th>
-            <th className="px-2 py-2 text-right">Expenses</th>
-            <th className="px-2 py-2 text-right">Windfalls</th>
-            <th className="px-2 py-2 text-right">Saved</th>
-            <th className="px-2 py-2 text-right">Growth</th>
-            <th className="px-2 py-2 text-right">Net worth</th>
-            <th className="px-2 py-2 text-right">Real</th>
+            <th className="px-2 py-2 text-left">{t.table.year}</th>
+            {people.length > 0 ? <th className="px-2 py-2 text-left">{t.table.ages}</th> : null}
+            <th className="px-2 py-2 text-right">{t.table.gross}</th>
+            <th className="px-2 py-2 text-right">{t.table.afterTax}</th>
+            <th className="px-2 py-2 text-right">{t.table.expenses}</th>
+            <th className="px-2 py-2 text-right">{t.table.windfalls}</th>
+            <th className="px-2 py-2 text-right">{t.table.saved}</th>
+            <th className="px-2 py-2 text-right">{t.table.growth}</th>
+            <th className="px-2 py-2 text-right">{t.table.netWorth}</th>
+            <th className="px-2 py-2 text-right">{t.table.real}</th>
           </tr>
         </thead>
         <tbody>
@@ -57,23 +48,23 @@ export default function YearTable({
                     {people.map((p) => r.ages[p.id] ?? 0).join(' / ')}
                   </td>
                 ) : null}
-                <td className="px-2 py-1.5 text-right">{fmt(r.grossIncome)}</td>
-                <td className="px-2 py-1.5 text-right">{fmt(r.afterTaxIncome)}</td>
-                <td className="px-2 py-1.5 text-right">{fmt(r.expenses)}</td>
+                <td className="px-2 py-1.5 text-right">{fmt.currency0(r.grossIncome)}</td>
+                <td className="px-2 py-1.5 text-right">{fmt.currency0(r.afterTaxIncome)}</td>
+                <td className="px-2 py-1.5 text-right">{fmt.currency0(r.expenses)}</td>
                 <td
                   className={`px-2 py-1.5 text-right ${r.windfalls > 0 ? 'text-positive' : 'text-muted'}`}
                 >
-                  {r.windfalls === 0 ? '—' : fmt(r.windfalls)}
+                  {r.windfalls === 0 ? '—' : fmt.currency0(r.windfalls)}
                 </td>
-                <td
-                  className={`px-2 py-1.5 text-right ${r.saved < 0 ? 'text-negative' : ''}`}
-                >
-                  {fmt(r.saved)}
+                <td className={`px-2 py-1.5 text-right ${r.saved < 0 ? 'text-negative' : ''}`}>
+                  {fmt.currency0(r.saved)}
                 </td>
-                <td className="text-muted px-2 py-1.5 text-right">{fmt(r.investmentGrowth)}</td>
-                <td className="px-2 py-1.5 text-right font-medium">{fmt(r.netWorth)}</td>
                 <td className="text-muted px-2 py-1.5 text-right">
-                  {fmt(r.netWorthRealTodayDollars)}
+                  {fmt.currency0(r.investmentGrowth)}
+                </td>
+                <td className="px-2 py-1.5 text-right font-medium">{fmt.currency0(r.netWorth)}</td>
+                <td className="text-muted px-2 py-1.5 text-right">
+                  {fmt.currency0(r.netWorthRealTodayDollars)}
                 </td>
               </tr>
             );

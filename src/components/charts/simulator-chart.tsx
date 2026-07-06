@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { useI18n } from '@/lib/i18n/locale';
 import type { SimulationResult, YearRow } from '@/lib/simulator/engine';
 
 export type DisplayMode = 'nominal' | 'real';
@@ -24,23 +25,6 @@ type Marker = {
   label: string;
   tone: 'windfall' | 'expense';
 };
-
-function fmtCompact(n: number): string {
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(n);
-}
-
-function fmtCurrency0(n: number): string {
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 type Point = {
   year: number;
@@ -57,16 +41,17 @@ function CustomTooltip({
   payload?: Array<{ payload: Point }>;
   mode: DisplayMode;
 }) {
+  const { t, fmt } = useI18n();
   if (!active || !payload?.length) return null;
   const p = payload[0]!.payload;
   return (
     <div className="border-border bg-background/95 rounded border px-2 py-1.5 text-[11px] shadow-lg backdrop-blur">
       <p className="text-muted nums">
-        {p.year} · {mode === 'real' ? 'today’s dollars' : 'nominal'}
+        {p.year} · {mode === 'real' ? t.chart.todaysDollars : t.chart.nominal}
       </p>
-      <p className="nums font-medium">{fmtCurrency0(p.base)}</p>
+      <p className="nums font-medium">{fmt.currency0(p.base)}</p>
       <p className="text-muted nums">
-        {fmtCurrency0(p.band[0])} – {fmtCurrency0(p.band[1])}
+        {fmt.currency0(p.band[0])} – {fmt.currency0(p.band[1])}
       </p>
     </div>
   );
@@ -85,6 +70,7 @@ export default function SimulatorChart({
   mode: DisplayMode;
   markers: Marker[];
 }) {
+  const { t, fmt } = useI18n();
   const data = useMemo<Point[]>(() => {
     return result.rows.map((row, i) => {
       const low = result.low[i]!;
@@ -100,7 +86,7 @@ export default function SimulatorChart({
   if (data.length === 0) {
     return (
       <div className="border-border text-muted flex h-[220px] items-center justify-center rounded border border-dashed text-xs">
-        Adjust the horizon to see the projection.
+        {t.chart.adjustHorizon}
       </div>
     );
   }
@@ -119,7 +105,7 @@ export default function SimulatorChart({
             minTickGap={24}
           />
           <YAxis
-            tickFormatter={fmtCompact}
+            tickFormatter={fmt.compact}
             tick={{ fill: 'var(--muted)', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
