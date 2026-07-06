@@ -47,11 +47,15 @@ const en = {
     inTodaysDollars: (real: string, pct: string) => `${real} in today's dollars · ${pct} over horizon`,
     impliedSavings: (pct: string) => `Implied savings rate (year 1): ${pct} of after-tax income`,
     bandHeading: 'Projection · low–high band',
+    bothHeading: 'Nominal vs real',
     nominal: 'Nominal',
     real: 'Real',
+    both: 'Both',
     computeError: 'Could not compute projection — check inputs.',
     bandCaption:
       'Band = pessimistic to optimistic return. Green dots are windfall years; red dots are major-expense years.',
+    gapCaption:
+      'Shaded gap = purchasing power lost to inflation (nominal − real). Green dots are windfall years; red dots are major-expense years.',
   },
   form: {
     section: {
@@ -214,6 +218,7 @@ const en = {
     adjustHorizon: 'Adjust the horizon to see the projection.',
     todaysDollars: 'today’s dollars',
     nominal: 'nominal',
+    inflationGap: 'Lost to inflation',
   },
   presets: {
     // Career-track headers in the role picker.
@@ -267,10 +272,13 @@ const zh: Messages = {
     inTodaysDollars: (real: string, pct: string) => `${real}（按今日购买力）· 期间累计 ${pct}`,
     impliedSavings: (pct: string) => `隐含储蓄率（第 1 年）：税后收入的 ${pct}`,
     bandHeading: '推算 · 悲观–乐观区间',
+    bothHeading: '名义 vs 实际',
     nominal: '名义',
     real: '实际',
+    both: '对比',
     computeError: '无法计算推算结果——请检查输入。',
     bandCaption: '区间表示从悲观到乐观的收益率。绿点为额外收入年份，红点为大额支出年份。',
+    gapCaption: '阴影 = 被通胀侵蚀的购买力（名义 − 实际）。绿点为额外收入年份，红点为大额支出年份。',
   },
   form: {
     section: {
@@ -431,6 +439,7 @@ const zh: Messages = {
     adjustHorizon: '调整推算区间以查看结果。',
     todaysDollars: '今日购买力',
     nominal: '名义',
+    inflationGap: '被通胀侵蚀',
   },
   presets: {
     track: {

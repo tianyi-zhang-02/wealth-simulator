@@ -6,6 +6,15 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Chart: nominal vs real comparison view
+
+- **Added** a third projection mode, **对比 / Both**: the chart draws the
+  nominal line (solid) and the real / today's-dollars line (dashed)
+  together, with the gap between them shaded — a direct visual of the
+  purchasing power lost to inflation. The tooltip shows both values and the
+  gap; the caption explains the shaded area. The single 名义 / 实际 views are
+  unchanged. Presentation only — no engine change.
+
 ### Role library — bilingual + medicine & finance tracks
 
 - **Added** Chinese titles + notes to **every** role (the picker shows them

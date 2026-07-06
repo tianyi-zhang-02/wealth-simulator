@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 
-import SimulatorChart, { type Marker } from '@/components/charts/simulator-chart';
+import SimulatorChart, { type DisplayMode, type Marker } from '@/components/charts/simulator-chart';
 import LangSwitch from '@/components/i18n/lang-switch';
 import AssumptionsForm from '@/components/simulator/assumptions-form';
 import CompareView, { type ComparableScenario } from '@/components/simulator/compare-view';
@@ -78,7 +78,7 @@ function SimulatorInner() {
     { id: newId(), name: t.scenarioBar.defaultName(1), assumptions: defaultAssumptions() },
   ]);
   const [selectedId, setSelectedId] = useState<string>(() => scenarios[0]!.id);
-  const [displayMode, setDisplayMode] = useState<'nominal' | 'real'>('nominal');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('nominal');
   const [showTable, setShowTable] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -377,29 +377,21 @@ function SimulatorInner() {
               <section className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                    {t.projection.bandHeading}
+                    {displayMode === 'both' ? t.projection.bothHeading : t.projection.bandHeading}
                   </p>
                   <div className="border-border flex rounded border text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setDisplayMode('nominal')}
-                      className={`px-2.5 py-1 ${
-                        displayMode === 'nominal'
-                          ? 'bg-foreground/10 text-foreground'
-                          : 'text-muted'
-                      }`}
-                    >
-                      {t.projection.nominal}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDisplayMode('real')}
-                      className={`px-2.5 py-1 ${
-                        displayMode === 'real' ? 'bg-foreground/10 text-foreground' : 'text-muted'
-                      }`}
-                    >
-                      {t.projection.real}
-                    </button>
+                    {(['nominal', 'real', 'both'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setDisplayMode(m)}
+                        className={`px-2.5 py-1 ${
+                          displayMode === m ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                        }`}
+                      >
+                        {t.projection[m]}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 {result ? (
@@ -407,7 +399,9 @@ function SimulatorInner() {
                 ) : (
                   <p className="text-negative text-xs">{t.projection.computeError}</p>
                 )}
-                <p className="text-muted text-[10px]">{t.projection.bandCaption}</p>
+                <p className="text-muted text-[10px]">
+                  {displayMode === 'both' ? t.projection.gapCaption : t.projection.bandCaption}
+                </p>
               </section>
 
               {/* Goal-seek. */}
