@@ -6,6 +6,13 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Less clutter — collapse set-once form sections
+
+- **Changed** the Horizon and Taxes sections to collapsed by default (they're
+  usually set once). The form now opens with just the three you actually
+  tweak — Starting state, Investment & inflation, and People & careers — with
+  the rest one click away.
+
 ### Monte Carlo — deterministic ⇄ probabilistic switch
 
 - **Added** a **Deterministic / Probabilistic** switch on the projection
