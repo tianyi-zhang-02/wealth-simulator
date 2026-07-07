@@ -371,6 +371,110 @@ function TaxEstimator({
   );
 }
 
+type AllocBucket = { label: string; weightPct: number; returnPct: number; costPct: number };
+
+/**
+ * Blends a single expected return from a rough asset mix. Each bucket's net
+ * return is `return − cost` (cost = carrying cost, e.g. property tax on real
+ * estate); the blend is the weight-normalized average. Transient (like
+ * TaxEstimator) — it computes and Applies to the return band, nothing is
+ * persisted. Illustrative, no engine change.
+ */
+function AllocationEstimator({ onApply }: { onApply: (blendedReturn: number) => void }) {
+  const { t, fmt } = useI18n();
+  const [buckets, setBuckets] = useState<AllocBucket[]>(() => [
+    { label: t.form.allocation.stocks, weightPct: 60, returnPct: 7, costPct: 0 },
+    { label: t.form.allocation.hysavings, weightPct: 20, returnPct: 3.5, costPct: 0 },
+    { label: t.form.allocation.bonds, weightPct: 10, returnPct: 4, costPct: 0 },
+    { label: t.form.allocation.realestate, weightPct: 10, returnPct: 4, costPct: 1.2 },
+  ]);
+
+  const totalWeight = buckets.reduce((s, b) => s + (b.weightPct || 0), 0);
+  const blended =
+    totalWeight > 0
+      ? buckets.reduce((s, b) => s + (b.weightPct / totalWeight) * (b.returnPct - b.costPct), 0)
+      : 0;
+
+  function patch(i: number, p: Partial<AllocBucket>) {
+    setBuckets((arr) => arr.map((b, j) => (j === i ? { ...b, ...p } : b)));
+  }
+
+  return (
+    <div className="border-border flex flex-col gap-2 rounded border p-3">
+      <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+        {t.form.allocation.heading}
+      </p>
+      <div className="flex flex-col gap-2">
+        {buckets.map((b, i) => (
+          <div key={i} className="border-border rounded border p-2">
+            <TextField
+              label={t.form.allocation.asset}
+              value={b.label}
+              onChange={(v) => patch(i, { label: v })}
+            />
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <NumField
+                label={t.form.allocation.weight}
+                value={b.weightPct}
+                step={5}
+                min={0}
+                suffix="%"
+                onChange={(n) => patch(i, { weightPct: Math.max(0, n) })}
+              />
+              <NumField
+                label={t.form.allocation.ret}
+                value={b.returnPct}
+                step={0.25}
+                suffix="%"
+                onChange={(n) => patch(i, { returnPct: n })}
+              />
+              <NumField
+                label={t.form.allocation.cost}
+                value={b.costPct}
+                step={0.25}
+                min={0}
+                suffix="%"
+                onChange={(n) => patch(i, { costPct: Math.max(0, n) })}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setBuckets((arr) => arr.filter((_, j) => j !== i))}
+              className="text-muted hover:text-negative mt-1 text-[11px]"
+            >
+              {t.form.allocation.remove}
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() =>
+          setBuckets((arr) => [
+            ...arr,
+            { label: t.form.allocation.asset, weightPct: 0, returnPct: 5, costPct: 0 },
+          ])
+        }
+        className="border-border hover:bg-foreground/5 self-start rounded border px-3 py-1 text-[11px]"
+      >
+        {t.form.allocation.addBucket}
+      </button>
+      <p className="text-muted text-[11px]">{t.form.allocation.totalWeight(Math.round(totalWeight))}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm">{t.form.allocation.blended(fmt.pct(blended, 1))}</span>
+        <button
+          type="button"
+          onClick={() => onApply(Number(blended.toFixed(1)))}
+          className="bg-foreground text-background rounded px-3 py-1 text-xs font-medium"
+        >
+          {t.form.allocation.apply}
+        </button>
+      </div>
+      <p className="text-muted text-[10px] italic">{t.form.allocation.note}</p>
+    </div>
+  );
+}
+
 export default function AssumptionsForm({ value, onChange }: { value: Assumptions; onChange: Setter }) {
   const { t } = useI18n();
 
@@ -533,6 +637,18 @@ export default function AssumptionsForm({ value, onChange }: { value: Assumption
             step={0.25}
             onChange={(n) => update({ inflationPct: n })}
             suffix="%"
+          />
+          <AllocationEstimator
+            onApply={(blended) => {
+              const base = Math.max(-50, Math.min(100, blended));
+              update({
+                investment: {
+                  returnPct: base,
+                  returnPctLow: Math.max(-50, Math.min(base, Number((base - 2).toFixed(2)))),
+                  returnPctHigh: Math.min(100, Math.max(base, Number((base + 2).toFixed(2)))),
+                },
+              });
+            }}
           />
           <div className="grid grid-cols-3 gap-3">
             <NumField
