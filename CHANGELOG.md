@@ -6,6 +6,17 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Asset-mix return calculator
+
+- **Added** a bilingual (EN / 中文) asset-allocation calculator in the
+  Investment section: blend an expected return from a rough mix — stocks,
+  high-yield savings (~3–4%), bonds, real estate — where each bucket's net
+  return is its return **minus a carrying cost** (e.g. property tax on real
+  estate). Shows the weight-normalized blended return and Applies it to the
+  low–base–high return band. Transient like the tax estimator — illustrative,
+  no engine or schema change. (Full per-year real-estate + property-tax
+  modeling will come with the mortgage what-if.)
+
 ### Stress test — job loss + market crash what-ifs
 
 - **Added** a bilingual (EN / 中文) Stress-test panel — a deterministic
