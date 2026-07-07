@@ -6,6 +6,20 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Monte Carlo — deterministic ⇄ probabilistic switch
+
+- **Added** a **Deterministic / Probabilistic** switch on the projection
+  chart. Probabilistic mode runs 1,000 seeded random market paths on your
+  assumptions (a **Volatility** input, default 15%) and draws a
+  **p10 / p50 / p90** fan; with a goal-seek target set, it also shows your
+  **success probability** ("82% chance of hitting your goal"). Real,
+  today's-dollar basis. Bilingual (EN / 中文).
+- **Engine**: additive only — a pure `runMonteCarlo` layer reuses the exact
+  cash-flow math via an optional per-year return sampler on
+  `simulateScenario`; `simulate()` and every existing call are unchanged.
+  Seeded, so the bands don't flicker. **Regression-tested: volatility 0
+  reproduces the deterministic projection exactly.** 70 tests total.
+
 ### Simple by default — advanced tools collapsed
 
 - **Changed** the projection to progressive disclosure: by default it shows

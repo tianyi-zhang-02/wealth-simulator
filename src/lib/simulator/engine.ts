@@ -143,7 +143,18 @@ function resolveLifestyle(a: Assumptions): Lifestyle {
   );
 }
 
-function simulateScenario(a: Assumptions, returnPct: number, stress?: StressConfig): YearRow[] {
+/**
+ * Runs one scenario at a constant `returnPct`. `stress` applies the optional
+ * what-if shocks; `sampleReturn(i)` (used by Monte Carlo) supplies a per-year
+ * return that overrides the constant — when omitted, behaviour is unchanged.
+ * Exported so the Monte-Carlo layer can reuse the exact cash-flow math.
+ */
+export function simulateScenario(
+  a: Assumptions,
+  returnPct: number,
+  stress?: StressConfig,
+  sampleReturn?: (yearIndex: number) => number,
+): YearRow[] {
   const rows: YearRow[] = [];
   let balance = a.startingNetWorth;
 
@@ -223,12 +234,15 @@ function simulateScenario(a: Assumptions, returnPct: number, stress?: StressConf
     // additive and defaults to 0.
     const saved = afterTaxIncome - expenses + extraContribution;
 
-    // 5. Start-of-year growth, then end-of-year adjustments. A market-shock
-    // stress overrides the return for that single year (e.g. −37% crash).
+    // 5. Start-of-year growth, then end-of-year adjustments. Per-year return
+    // priority: market-shock stress (a fixed crash year) > Monte-Carlo
+    // sampled return > the constant `returnPct`.
     const yearReturnPct =
       stress?.marketShock && stress.marketShock.year === year
         ? stress.marketShock.returnPct
-        : returnPct;
+        : sampleReturn
+          ? sampleReturn(i)
+          : returnPct;
     const investmentGrowth = balance * (yearReturnPct / 100);
     balance = balance + investmentGrowth + saved + windfalls;
 
