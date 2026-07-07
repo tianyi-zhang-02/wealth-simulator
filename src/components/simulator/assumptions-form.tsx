@@ -568,7 +568,7 @@ export default function AssumptionsForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <Section title={t.form.section.horizon}>
+      <Section title={t.form.section.horizon} defaultOpen={false}>
         <div className="grid grid-cols-2 gap-3">
           <NumField
             label={t.form.horizon.startYear}
@@ -615,7 +615,7 @@ export default function AssumptionsForm({
         </div>
       </Section>
 
-      <Section title={t.form.section.taxes}>
+      <Section title={t.form.section.taxes} defaultOpen={false}>
         <div className="flex flex-col gap-3">
           <TaxEstimator
             currentRate={value.effectiveTaxRatePct}
