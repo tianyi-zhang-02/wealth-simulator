@@ -61,6 +61,14 @@ const en = {
       'Band = pessimistic to optimistic return. Green dots are windfall years; red dots are major-expense years.',
     gapCaption:
       'Shaded gap = purchasing power lost to inflation (nominal − real). Green dots are windfall years; red dots are major-expense years.',
+    detMode: 'Deterministic',
+    probMode: 'Probabilistic',
+    mcHeading: 'Probabilistic · p10–p90',
+    volatility: 'Volatility',
+    successProb: (pct: string) => `${pct} chance of hitting your goal`,
+    mcCaption:
+      'From 1,000 random market paths on your assumptions. Shaded = p10–p90; line = p50 (median). Real, today’s dollars.',
+    mcNeedTarget: 'Set a goal-seek target (in advanced tools) to see your success probability.',
   },
   form: {
     section: {
@@ -348,6 +356,13 @@ const zh: Messages = {
     computeError: '无法计算推算结果——请检查输入。',
     bandCaption: '区间表示从悲观到乐观的收益率。绿点为额外收入年份，红点为大额支出年份。',
     gapCaption: '阴影 = 被通胀侵蚀的购买力（名义 − 实际）。绿点为额外收入年份，红点为大额支出年份。',
+    detMode: '确定性',
+    probMode: '概率',
+    mcHeading: '概率 · p10–p90',
+    volatility: '波动率',
+    successProb: (pct: string) => `达标概率 ${pct}`,
+    mcCaption: '基于你的假设跑 1000 次随机市场路径。阴影 = p10–p90，中线 = p50（中位）。按今日购买力。',
+    mcNeedTarget: '在「高级工具」里设一个目标求解目标，即可看到达标概率。',
   },
   form: {
     section: {

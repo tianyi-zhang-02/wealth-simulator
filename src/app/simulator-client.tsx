@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 
+import MonteCarloChart from '@/components/charts/montecarlo-chart';
 import SimulatorChart, { type DisplayMode, type Marker } from '@/components/charts/simulator-chart';
 import LangSwitch from '@/components/i18n/lang-switch';
 import AssumptionsForm from '@/components/simulator/assumptions-form';
@@ -13,6 +14,7 @@ import StressPanel from '@/components/simulator/stress-panel';
 import YearTable from '@/components/simulator/year-table';
 import { LocaleProvider, useI18n } from '@/lib/i18n/locale';
 import { simulate } from '@/lib/simulator/engine';
+import { runMonteCarlo } from '@/lib/simulator/montecarlo';
 import { assumptionsSchema, type Assumptions } from '@/lib/validation/scenarios';
 
 /**
@@ -81,6 +83,9 @@ function SimulatorInner() {
   ]);
   const [selectedId, setSelectedId] = useState<string>(() => scenarios[0]!.id);
   const [displayMode, setDisplayMode] = useState<DisplayMode>('nominal');
+  // Deterministic band vs probabilistic Monte-Carlo fan (a chart-level switch).
+  const [chartEngine, setChartEngine] = useState<'deterministic' | 'probabilistic'>('deterministic');
+  const [volatilityPct, setVolatilityPct] = useState(15);
   const [showTable, setShowTable] = useState(false);
   const [comparing, setComparing] = useState(false);
   // Progressive disclosure: keep the default view simple; reveal the analysis
@@ -184,6 +189,17 @@ function SimulatorInner() {
       return null;
     }
   }, [assumptions]);
+
+  // Monte-Carlo bands — only computed when the probabilistic view is active.
+  const mc = useMemo(() => {
+    if (chartEngine !== 'probabilistic') return null;
+    try {
+      return runMonteCarlo(assumptions, { volatilityPct });
+    } catch (err) {
+      console.warn('[public-simulator] monte-carlo failed', err);
+      return null;
+    }
+  }, [chartEngine, assumptions, volatilityPct]);
 
   const lastNominal = result?.rows[result.rows.length - 1]?.netWorth ?? 0;
   const lastReal = result?.rows[result.rows.length - 1]?.netWorthRealTodayDollars ?? 0;
@@ -378,34 +394,93 @@ function SimulatorInner() {
                 ) : null}
               </section>
 
-              {/* Chart + nominal/real toggle. */}
+              {/* Chart — deterministic band or probabilistic (Monte-Carlo) fan. */}
               <section className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
-                    {displayMode === 'both' ? t.projection.bothHeading : t.projection.bandHeading}
+                    {chartEngine === 'probabilistic'
+                      ? t.projection.mcHeading
+                      : displayMode === 'both'
+                        ? t.projection.bothHeading
+                        : t.projection.bandHeading}
                   </p>
                   <div className="border-border flex rounded border text-[11px]">
-                    {(['nominal', 'real', 'both'] as const).map((m) => (
+                    {(['deterministic', 'probabilistic'] as const).map((e) => (
                       <button
-                        key={m}
+                        key={e}
                         type="button"
-                        onClick={() => setDisplayMode(m)}
+                        onClick={() => setChartEngine(e)}
                         className={`px-2.5 py-1 ${
-                          displayMode === m ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                          chartEngine === e ? 'bg-foreground/10 text-foreground' : 'text-muted'
                         }`}
                       >
-                        {t.projection[m]}
+                        {e === 'deterministic' ? t.projection.detMode : t.projection.probMode}
                       </button>
                     ))}
                   </div>
                 </div>
-                {result ? (
+
+                {/* Secondary controls: nominal/real (deterministic) or volatility (probabilistic). */}
+                <div className="flex items-center justify-between gap-2">
+                  {chartEngine === 'deterministic' ? (
+                    <div className="border-border flex rounded border text-[11px]">
+                      {(['nominal', 'real', 'both'] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setDisplayMode(m)}
+                          className={`px-2.5 py-1 ${
+                            displayMode === m ? 'bg-foreground/10 text-foreground' : 'text-muted'
+                          }`}
+                        >
+                          {t.projection[m]}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <label className="text-muted flex items-center gap-1.5 text-[11px]">
+                      {t.projection.volatility}
+                      <input
+                        type="number"
+                        value={volatilityPct}
+                        min={0}
+                        max={60}
+                        step={1}
+                        onChange={(e) =>
+                          setVolatilityPct(Math.max(0, Math.min(60, Number(e.target.value) || 0)))
+                        }
+                        className="border-border focus:border-foreground nums w-14 rounded border bg-transparent px-2 py-1 text-right outline-none"
+                      />
+                      %
+                    </label>
+                  )}
+                  {chartEngine === 'probabilistic' && mc?.successProbability != null ? (
+                    <span className="text-positive nums text-[11px]">
+                      {t.projection.successProb(fmt.pct0(mc.successProbability * 100))}
+                    </span>
+                  ) : null}
+                </div>
+
+                {chartEngine === 'probabilistic' ? (
+                  mc ? (
+                    <MonteCarloChart mc={mc} />
+                  ) : (
+                    <p className="text-negative text-xs">{t.projection.computeError}</p>
+                  )
+                ) : result ? (
                   <SimulatorChart result={result} mode={displayMode} markers={markers} />
                 ) : (
                   <p className="text-negative text-xs">{t.projection.computeError}</p>
                 )}
+
                 <p className="text-muted text-[10px]">
-                  {displayMode === 'both' ? t.projection.gapCaption : t.projection.bandCaption}
+                  {chartEngine === 'probabilistic'
+                    ? mc?.successProbability == null
+                      ? `${t.projection.mcCaption} ${t.projection.mcNeedTarget}`
+                      : t.projection.mcCaption
+                    : displayMode === 'both'
+                      ? t.projection.gapCaption
+                      : t.projection.bandCaption}
                 </p>
               </section>
 
