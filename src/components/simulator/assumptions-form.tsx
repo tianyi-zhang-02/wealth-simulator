@@ -607,16 +607,11 @@ function MortgageEditor({
   );
 }
 
-export default function AssumptionsForm({
-  value,
-  onChange,
-  advanced = false,
-}: {
-  value: Assumptions;
-  onChange: Setter;
-  /** When false (default), hide the advanced asset-mix calculator. */
-  advanced?: boolean;
-}) {
+export default function AssumptionsForm({ value, onChange }: { value: Assumptions; onChange: Setter }) {
+  // The asset-mix estimator gets its own inline disclosure (it used to hide
+  // behind the global "advanced tools" toggle in the OTHER column — a
+  // cross-column dependency nobody could find).
+  const [showAllocation, setShowAllocation] = useState(false);
   const { t } = useI18n();
 
   function update(patch: Partial<Assumptions>) {
@@ -744,6 +739,16 @@ export default function AssumptionsForm({
             onChange={(n) => update({ recurringAnnualExpenses: n })}
             suffix="$"
           />
+          <NumField
+            label={t.form.starting.investedShare}
+            value={value.investedSharePct ?? 100}
+            step={5}
+            min={0}
+            max={100}
+            onChange={(n) => update({ investedSharePct: Math.min(100, Math.max(0, n)) })}
+            suffix="%"
+          />
+          <p className="text-muted text-[10px]">{t.form.starting.investedShareHint}</p>
         </div>
       </Section>
 
@@ -779,7 +784,15 @@ export default function AssumptionsForm({
             onChange={(n) => update({ inflationPct: n })}
             suffix="%"
           />
-          {advanced ? (
+          <button
+            type="button"
+            onClick={() => setShowAllocation((v) => !v)}
+            className="text-muted hover:text-foreground self-start text-[11px] underline-offset-2 hover:underline"
+          >
+            {showAllocation ? '− ' : '+ '}
+            {t.form.allocation.heading}
+          </button>
+          {showAllocation ? (
             <AllocationEstimator
               onApply={(blended) => {
                 const base = Math.max(-50, Math.min(100, blended));

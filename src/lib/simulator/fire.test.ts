@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { YearRow } from './engine';
 import { computeFire, type FireOptions } from './fire';
 
-/** Minimal YearRow where only year + real net worth matter to computeFire. */
-function row(year: number, realNetWorth: number): YearRow {
+/** Minimal YearRow where only year + real net worth (+ home equity) matter. */
+function row(year: number, realNetWorth: number, homeEquityReal = 0): YearRow {
   return {
     year,
     ages: {},
@@ -14,9 +14,10 @@ function row(year: number, realNetWorth: number): YearRow {
     windfalls: 0,
     saved: 0,
     investmentGrowth: 0,
-    investedBalance: realNetWorth,
+    investedBalance: realNetWorth - homeEquityReal,
     netWorth: realNetWorth,
     netWorthRealTodayDollars: realNetWorth,
+    homeEquityRealTodayDollars: homeEquityReal,
   };
 }
 
@@ -67,6 +68,15 @@ describe('computeFire', () => {
     expect(r.coast.age).toBe(30);
     expect(r.coast.number).toBeGreaterThan(200_000);
     expect(r.coast.number).toBeLessThan(r.full.number); // coasting needs less than full
+  });
+
+  it('home equity does NOT count toward FIRE — only investable net worth does', () => {
+    // Real net worth 1.2M looks past the 1M number, but 500k of it is the
+    // house. Investable = 700k → not FIRE'd. Same total without the house is.
+    const withHome = [row(2026, 1_200_000, 500_000)];
+    const noHome = [row(2026, 1_200_000)];
+    expect(computeFire(withHome, base).full.reached).toBe(false);
+    expect(computeFire(noHome, base).full.reached).toBe(true);
   });
 
   it('without a person, full/lean still compute (age null) and coast is skipped', () => {

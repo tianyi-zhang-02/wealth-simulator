@@ -30,6 +30,9 @@ export function defaultAssumptions(): Assumptions {
     ],
     startingNetWorth: 50_000,
     startingInvested: 50_000,
+    // Bills come first — by default only 80% of each year's surplus is
+    // actually invested; the rest accumulates as cash (no return).
+    investedSharePct: 80,
     effectiveTaxRatePct: 32,
     // Conservative default returns (nominal). 6% ≈ ~3% real at 3% inflation —
     // deliberately on the cautious side so the projection doesn't over-promise.

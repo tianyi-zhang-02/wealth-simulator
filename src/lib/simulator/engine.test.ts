@@ -38,6 +38,7 @@ describe('simulate — pure growth', () => {
   it('compounds startingNetWorth at returnPct with no flows', () => {
     const a = emptyAssumptions({
       startingNetWorth: 100_000,
+      startingInvested: 100_000,
       investment: { returnPct: 5, returnPctLow: 5, returnPctHigh: 5 },
     });
     const { rows } = simulate(a);
@@ -70,6 +71,7 @@ describe('simulate — inflation', () => {
       horizonStartYear: 2026,
       horizonEndYear: 2035,
       startingNetWorth: 100_000,
+      startingInvested: 100_000,
       investment: { returnPct: 7, returnPctLow: 7, returnPctHigh: 7 },
       inflationPct: 3,
     });
@@ -339,6 +341,7 @@ describe('simulate — return bands', () => {
       horizonStartYear: 2030,
       horizonEndYear: 2030,
       startingNetWorth: 100_000,
+      startingInvested: 100_000,
       investment: { returnPct: 7, returnPctLow: 4, returnPctHigh: 10 },
     });
     const { rows, low, high } = simulate(a);
