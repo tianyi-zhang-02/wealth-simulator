@@ -15,9 +15,9 @@
  *     compound at the real return until `retirementAge` (no further saving),
  *     would already reach the Full FIRE number.
  *
- * Caveat (surfaced in the UI): this treats the whole net worth as investable
- * (true in the current single-pool engine). It's a planning estimate, not
- * advice.
+ * Basis: INVESTABLE real net worth — invested + cash, i.e. netWorthReal minus
+ * home equity. You can't withdraw 4% of a house, so home equity never counts
+ * toward a FIRE number. It's a planning estimate, not advice.
  */
 
 import type { YearRow } from './engine';
@@ -57,14 +57,19 @@ export type FireOptions = {
   retirementAge?: number;
 };
 
-/** First row whose real net worth reaches `target`, as a milestone. */
+/** Investable (ex-home) real net worth — the basis for every FIRE milestone. */
+function investableReal(r: YearRow): number {
+  return r.netWorthRealTodayDollars - r.homeEquityRealTodayDollars;
+}
+
+/** First row whose investable real net worth reaches `target`, as a milestone. */
 function firstReaching(
   rows: YearRow[],
   target: number,
   primaryBirthYear: number | null,
 ): FireMilestone {
   for (const r of rows) {
-    if (r.netWorthRealTodayDollars >= target) {
+    if (investableReal(r) >= target) {
       return {
         reached: true,
         year: r.year,
@@ -103,7 +108,7 @@ export function computeFire(rows: YearRow[], opts: FireOptions): FireResult {
       // retirement. Past retirement age, you need the full number outright.
       const needed =
         yearsToRetire > 0 ? fullNumber / Math.pow(1 + realReturn, yearsToRetire) : fullNumber;
-      if (r.netWorthRealTodayDollars >= needed) {
+      if (investableReal(r) >= needed) {
         coast = { reached: true, year: r.year, age: ageThatYear, number: needed };
         break;
       }

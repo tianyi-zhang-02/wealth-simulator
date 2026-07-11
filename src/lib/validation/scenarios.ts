@@ -197,6 +197,10 @@ export const assumptionsSchema = z
     windfalls: z.array(windfallSchema).max(100),
     majorExpenses: z.array(majorExpenseSchema).max(100),
     recurringAnnualExpenses: positiveMoney,
+    // Of a positive annual surplus (after-tax income − spending), the share
+    // that actually gets invested (%). The rest is treated as discretionary
+    // consumption. Optional — defaults to 100 (invest the whole surplus).
+    investedSharePct: z.number().min(0).max(100).optional(),
     // Added in Feature 3 (simulator v2). Optional for back-compat with
     // scenarios saved before this field existed.
     lifestyle: lifestyleSchema.optional(),

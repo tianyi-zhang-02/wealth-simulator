@@ -89,6 +89,7 @@ describe('demo: three sanity cases', () => {
   it('CASE 3: $100k starting, 7% nominal, 3% inflation, 10 years', () => {
     const a = base({
       startingNetWorth: 100_000,
+      startingInvested: 100_000,
       inflationPct: 3,
     });
     const { rows } = simulate(a);

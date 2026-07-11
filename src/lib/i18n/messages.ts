@@ -26,7 +26,7 @@ const en = {
   advanced: {
     show: 'Show advanced tools',
     hide: 'Hide advanced tools',
-    hint: 'goal-seek · FIRE · stress test · asset mix',
+    hint: 'goal-seek · FIRE · stress test',
   },
   controls: {
     smaller: 'Smaller text',
@@ -93,6 +93,9 @@ const en = {
       netWorth: 'Starting net worth',
       invested: 'Starting invested (subset of net worth)',
       expenses: 'Recurring annual household expenses',
+      investedShare: 'Invested share of surplus',
+      investedShareHint:
+        'Bills come first — of what’s left after tax and spending, the share you actually invest. The rest stays as cash: it still counts in your net worth, but earns nothing. Only invested money compounds.',
     },
     taxes: {
       estimateHeading: 'Estimate from state + income',
@@ -289,7 +292,7 @@ const en = {
     coastNeedsPerson: 'add a person under “People & careers” to compute Coast FIRE',
     needExpenses: 'enter your annual expenses to compute FIRE',
     disclaimer:
-      'FIRE number = annual spend ÷ withdrawal rate (25× at 4%), vs real (today’s-dollar) net worth. Assumes your whole net worth is investable — a planning estimate, not advice.',
+      'FIRE number = annual spend ÷ withdrawal rate (25× at 4%), vs your INVESTABLE real net worth — home equity is excluded, since you can’t withdraw 4% of a house. A planning estimate, not advice.',
   },
   stress: {
     heading: 'Stress test — what if it goes wrong?',
@@ -343,7 +346,7 @@ const zh: Messages = {
   advanced: {
     show: '显示高级工具',
     hide: '收起高级工具',
-    hint: '目标求解 · FIRE · 压力测试 · 资产配比',
+    hint: '目标求解 · FIRE · 压力测试',
   },
   controls: {
     smaller: '缩小字体',
@@ -407,6 +410,9 @@ const zh: Messages = {
       netWorth: '初始净资产',
       invested: '初始已投资金额（净资产的一部分）',
       expenses: '每年固定家庭开支',
+      investedShare: '结余投资比例',
+      investedShareHint:
+        '先付账单——税后扣除开支后的结余里，实际投进去的比例。其余以现金留存：仍计入净资产，但不产生收益。只有投进去的钱才吃复利。',
     },
     taxes: {
       estimateHeading: '按州与收入估算',
@@ -601,7 +607,7 @@ const zh: Messages = {
     coastNeedsPerson: '请在「成员与职业」中添加一位成员以计算 Coast FIRE',
     needExpenses: '请先填写每年开支以计算 FIRE',
     disclaimer:
-      'FIRE 数字 = 每年开支 ÷ 提取率（4% 即 25×），与实际（今日购买力）净资产比较。假设净资产全部可投资——仅为规划估算，非投资建议。',
+      'FIRE 数字 = 每年开支 ÷ 提取率（4% 即 25×），与「可投资」的实际净资产比较——不含房产净值，因为你没法对房子提取 4%。仅为规划估算，非投资建议。',
   },
   stress: {
     heading: '压力测试 · 万一出事呢？',

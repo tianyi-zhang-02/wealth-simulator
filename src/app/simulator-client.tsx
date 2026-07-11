@@ -280,7 +280,7 @@ function SimulatorInner() {
       <header className="flex flex-col gap-1">
         <div className="flex items-start justify-between gap-3">
           <h1 className="serif-display text-2xl">{t.app.title}</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Font size */}
             <div className="border-border flex rounded border text-[11px]">
               <button
@@ -415,11 +415,18 @@ function SimulatorInner() {
               <p className="text-muted mb-2 text-[10px] tracking-[0.18em] uppercase">
                 {t.projection.assumptionsLabel}
               </p>
-              <AssumptionsForm value={assumptions} onChange={patchCurrent} advanced={advanced} />
+              <AssumptionsForm value={assumptions} onChange={patchCurrent} />
             </div>
 
             {/* Projection — pinned on desktop. */}
-            <div className="order-1 flex flex-col gap-6 lg:sticky lg:top-6 lg:order-2 lg:self-start">
+            <div
+              className={`order-1 flex flex-col gap-6 lg:order-2 lg:self-start ${
+                // Sticky only in the simple view. With advanced tools open the
+                // column is taller than the viewport — pinning it would make
+                // its lower panels unreachable while the form scrolls.
+                advanced ? '' : 'lg:sticky lg:top-6'
+              }`}
+            >
               {/* Headline result. */}
               <section className="border-border rounded-lg border p-4">
                 <p className="text-muted text-[10px] tracking-[0.18em] uppercase">

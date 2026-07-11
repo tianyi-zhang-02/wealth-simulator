@@ -6,6 +6,35 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Two-pool model: bills come first, only invested money compounds
+
+- **Added** an **Invested share of surplus** input (Starting state, default
+  100%; new scenarios seed 80%). Savings is still derived from after-tax
+  income − spending, but only that share of a positive surplus goes into the
+  **invested pool** — the rest stays as **cash**: it counts in net worth but
+  earns nothing. Not everything you keep gets to eat the returns. Bilingual.
+- **Fixed** `startingInvested` was collected and validated but **ignored** —
+  the engine grew your entire starting net worth at the investment return.
+  Now only the invested pool compounds; the gap sits as cash.
+- **Fixed** FIRE milestones counted **home equity** toward the 25× number.
+  They now use investable (ex-home) real net worth — you can't withdraw 4%
+  of a house. Disclaimer updated.
+- **Changed** shortfalls and housing costs draw **cash first**, then
+  investments; a market-crash stress now hits only the invested pool (your
+  checking account doesn't crash). With no mortgage, 100% share, and
+  starting net worth fully invested, results are bit-identical to before
+  (regression-tested; 82 tests).
+
+### UI flow — findability and stickiness
+
+- **Changed** the asset-mix calculator moved out of the global "advanced
+  tools" toggle (which lives in the *other* column) into its own inline
+  disclosure inside Investment & inflation — where returns are edited.
+- **Fixed** the projection column no longer pins (`sticky`) while advanced
+  tools are open — a pinned column taller than the viewport made its lower
+  panels unreachable.
+- **Fixed** header controls wrap on narrow screens.
+
 - **Docs** — refreshed README (EN + 中文) for the full v1.0.0 feature set
   (FIRE, Monte Carlo, stress test, mortgage, asset mix, themes) and added a
   release / license badge.

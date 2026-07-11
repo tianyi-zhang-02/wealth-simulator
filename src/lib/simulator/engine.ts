@@ -18,15 +18,21 @@ import type {
  *      preferential treatment of long-term capital gains or qualified
  *      dividends. Tune the rate to absorb whatever blend matches your
  *      situation.
- *   2. **Single asset pool.** All wealth is treated as one balance growing
- *      at `investment.returnPct` per year (with low/high variants for
- *      the band). No cash-vs-invested split, no bond/stock allocation, no
- *      sequence-of-returns risk. The spec calls this out explicitly.
+ *   2. **Two pools: invested vs cash.** Only the `invested` pool (seeded by
+ *      `startingInvested`) earns `investment.returnPct`; the `cash` pool —
+ *      the rest of starting net worth plus the un-invested share of each
+ *      year's surplus — counts toward net worth but earns NOTHING. Bills
+ *      come first: shortfalls and housing costs draw cash before touching
+ *      investments. `investedSharePct` (default 100) sets how much of a
+ *      positive surplus actually gets invested. No bond/stock allocation
+ *      within the invested pool.
  *   3. **No Social Security, no pensions, no annuities.** Income outside
  *      the career stages comes only from windfalls.
- *   4. **No mortgage modeling.** A house down payment is just a major
- *      expense; subsequent mortgage payments belong in
- *      `recurringAnnualExpenses` (which inflates with CPI).
+ *   4. **Optional home + mortgage.** When `assumptions.mortgage` is set,
+ *      net worth = invested + cash + (home value − mortgage balance): the
+ *      down payment converts cash→equity, each payment splits into interest
+ *      (a cost) and principal (equity), property tax + maintenance are
+ *      costs, and the home appreciates. Absent = no housing modeled.
  *   5. **Start-of-year growth convention.** Each year, this year's
  *      `investmentGrowth` is computed from the END of last year's
  *      balance, BEFORE this year's contributions, windfalls, and any
@@ -103,16 +109,22 @@ export type YearRow = {
   /** Recurring + active major expenses. */
   expenses: number;
   windfalls: number;
-  /** Net added to the invested balance this year. Can be negative (drawdown). */
+  /** Money kept this year (surplus + extra contribution). Can be negative (drawdown). */
   saved: number;
-  /** This year's growth on the start-of-year balance. */
+  /** This year's growth on the start-of-year INVESTED pool (cash earns nothing). */
   investmentGrowth: number;
-  /** End-of-year balance after growth + saved + windfalls. */
+  /** End-of-year invested pool — excludes the cash pool and home equity. */
   investedBalance: number;
-  /** Single-pool net worth = investedBalance (see assumption #2). */
+  /** invested + cash + home equity (see assumptions #2 and #4). */
   netWorth: number;
   /** netWorth deflated by cumulative inflation back to horizonStartYear dollars. */
   netWorthRealTodayDollars: number;
+  /**
+   * Home equity (home value − mortgage balance) deflated to today's dollars;
+   * 0 with no mortgage. FIRE milestones use netWorthReal − this, since you
+   * can't withdraw 4% of a house.
+   */
+  homeEquityRealTodayDollars: number;
 };
 
 export type SimulationResult = {
@@ -156,13 +168,26 @@ export function simulateScenario(
   sampleReturn?: (yearIndex: number) => number,
 ): YearRow[] {
   const rows: YearRow[] = [];
-  let balance = a.startingNetWorth;
+  // Two pools (assumption #2): only `invested` compounds; `cash` is the rest
+  // of net worth — the starting gap plus every year's un-invested surplus.
+  let invested = a.startingInvested;
+  let cash = a.startingNetWorth - a.startingInvested;
 
   const lifestyle = resolveLifestyle(a);
   const inflRate = a.inflationPct / 100;
   const creepRate = lifestyle.lifestyleCreepPct / 100;
   const creepShare = lifestyle.creepShareOfRaisePct / 100;
   const extraContribution = a.extraAnnualContribution ?? 0;
+  const investedShare = (a.investedSharePct ?? 100) / 100;
+
+  // Pay a cost out of the pools: cash first (bills come first), then the
+  // invested balance — which may go negative; a sustained shortfall keeps
+  // compounding against you, debt-like, same as the old single-pool model.
+  const payFromPools = (amount: number) => {
+    const fromCash = Math.min(Math.max(cash, 0), amount);
+    cash -= fromCash;
+    invested -= amount - fromCash;
+  };
 
   // Home + mortgage state, carried across years. Zero when no mortgage — in
   // that case every housing term below is 0 and net worth is unchanged.
@@ -234,32 +259,53 @@ export function simulateScenario(
     let windfalls = 0;
     for (const w of a.windfalls) if (w.year === year) windfalls += w.amount;
 
-    // 4. Cash-flow (see assumption #6): savings is DERIVED — what you don't
-    // pay in tax or spend, you save. No separate savings-rate knob.
-    //   saved = afterTaxIncome − expenses + extraContribution
-    // Can go negative — that's a drawdown from the invested balance.
-    // `extraContribution` is the goal-seek "save $X/mo more" lever; it's
-    // additive and defaults to 0.
-    const saved = afterTaxIncome - expenses + extraContribution;
+    // 4. Cash-flow (assumption #6): savings is DERIVED (income − spending).
+    // `saved` reports everything you KEPT — the money doesn't vanish just
+    // because it isn't invested. Only `investedSharePct` of a positive
+    // surplus goes into the invested pool; the rest accumulates as cash
+    // (counts in net worth, earns nothing). `extraContribution` — the
+    // goal-seek "save $X/mo more" lever — is an explicit investment
+    // contribution and is never split.
+    const surplus = afterTaxIncome - expenses;
+    const saved = surplus + extraContribution;
 
-    // 5. Start-of-year growth, then end-of-year adjustments. Per-year return
-    // priority: market-shock stress (a fixed crash year) > Monte-Carlo
-    // sampled return > the constant `returnPct`.
+    // 5. Start-of-year growth on the INVESTED pool only (a market crash hits
+    // your portfolio, not your checking account), then route this year's
+    // flows. Per-year return priority: market-shock stress (a fixed crash
+    // year) > Monte-Carlo sampled return > the constant `returnPct`.
     const yearReturnPct =
       stress?.marketShock && stress.marketShock.year === year
         ? stress.marketShock.returnPct
         : sampleReturn
           ? sampleReturn(i)
           : returnPct;
-    const investmentGrowth = balance * (yearReturnPct / 100);
-    balance = balance + investmentGrowth + saved + windfalls;
+    const investmentGrowth = invested * (yearReturnPct / 100);
+    invested += investmentGrowth;
 
-    // 6. Home + mortgage (assumption: net worth = investable balance + home
-    // equity). Only active when `a.mortgage` is set; otherwise all zero.
+    if (surplus >= 0) {
+      invested += surplus * investedShare + extraContribution;
+      cash += surplus * (1 - investedShare);
+    } else {
+      // Shortfall: the extra contribution offsets it first; any remainder
+      // draws down cash, then investments.
+      const net = surplus + extraContribution;
+      if (net >= 0) invested += net;
+      else payFromPools(-net);
+    }
+    // Windfalls follow the same invested share as ordinary savings.
+    if (windfalls >= 0) {
+      invested += windfalls * investedShare;
+      cash += windfalls * (1 - investedShare);
+    } else {
+      payFromPools(-windfalls);
+    }
+
+    // 6. Home + mortgage (assumption #4). Housing costs are bills — they
+    // draw cash first, then investments. Only active when `a.mortgage` is set.
     if (m && year >= m.purchaseYear) {
       if (year === m.purchaseYear) {
-        // Down payment: cash out of the pool, into home equity.
-        balance -= m.homePrice * (m.downPaymentPct / 100);
+        // Down payment: out of the pools, into home equity (net-worth-neutral).
+        payFromPools(m.homePrice * (m.downPaymentPct / 100));
         homeValue = m.homePrice;
         mortgageBalance = loanAmount;
       }
@@ -274,14 +320,13 @@ export function simulateScenario(
         mortgageBalance -= principal;
         payment = interest + principal;
       }
-      // Housing cash leaves the investable pool; principal reappears as equity.
-      balance -= payment + propertyTax + maintenance;
+      payFromPools(payment + propertyTax + maintenance);
       // Appreciate the home at year end.
       homeValue *= 1 + (m.homeAppreciationPct ?? 0) / 100;
     }
     const homeEquity = homeValue - mortgageBalance;
 
-    const netWorth = balance + homeEquity;
+    const netWorth = invested + cash + homeEquity;
     // Same factor as expenseInflationFactor above — coherence by
     // construction. Row i values are all in T=i+1 nominal.
     const netWorthRealTodayDollars = netWorth / expenseInflationFactor;
@@ -295,9 +340,10 @@ export function simulateScenario(
       windfalls,
       saved,
       investmentGrowth,
-      investedBalance: balance,
+      investedBalance: invested,
       netWorth,
       netWorthRealTodayDollars,
+      homeEquityRealTodayDollars: homeEquity / expenseInflationFactor,
     });
 
     // Carry forward for the next year of incomeScaled mode.

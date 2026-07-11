@@ -20,7 +20,7 @@ Everything runs in the browser. **There is no backend, no database, no account, 
 
 - **Year-by-year projection** from a pure, deterministic, unit-tested engine (documented inflation convention, low/mid/high return bands).
 - **Careers with equity** — multiple people and career stages, each with base salary, bonus, and **annual equity / RSU comp**. A browsable, searchable, bilingual **role library** — tech (L3–L7), medicine, law, finance — provides illustrative starting numbers.
-- **Derived savings** — no savings-rate knob: each year you save whatever's left of after-tax income after spending; the implied rate is shown as an output.
+- **Derived savings, honest compounding** — no savings-rate knob: each year you keep whatever's left of after-tax income after spending. But bills come first — you choose the **share of that surplus you actually invest**; the rest stays as cash that counts in net worth yet earns nothing. Only invested money compounds.
 - **Tax presets** — a rough state + federal effective-rate estimate (all 50 states + DC), fully editable.
 - **Home & mortgage what-if** — adds the home as an asset and the mortgage as a liability: down payment → equity, interest / property tax / maintenance as costs, principal builds equity, the home appreciates. Shows the monthly P&I.
 - **Asset-mix return calculator** — blend a return from stocks, high-yield savings, bonds, and real estate (net of carrying costs like property tax), and apply it to the return band.
