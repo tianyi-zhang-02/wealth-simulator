@@ -24,7 +24,8 @@ export type LandmarkKind =
   | 'crash'
   | 'car'
   | 'boat'
-  | 'travel';
+  | 'travel'
+  | 'retire';
 
 export type Landmark = {
   year: number;
@@ -106,6 +107,11 @@ export function buildJourney(rows: YearRow[], a: Assumptions): Journey {
   const primary = a.people[0];
   if (a.target && primary && inRange(primary.birthYear + a.target.age)) {
     landmarks.push({ year: primary.birthYear + a.target.age, kind: 'goal' });
+  }
+
+  // Retirement: a deck chair the year the primary person stops working.
+  if (primary?.retireAge !== undefined && inRange(primary.birthYear + primary.retireAge)) {
+    landmarks.push({ year: primary.birthYear + primary.retireAge, kind: 'retire' });
   }
 
   if (a.mortgage && inRange(a.mortgage.purchaseYear)) {

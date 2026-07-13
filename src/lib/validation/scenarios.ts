@@ -37,6 +37,12 @@ const personSchema = z.object({
   name: z.string().trim().min(1).max(80),
   birthYear: year,
   careerStages: z.array(careerStageSchema).max(20),
+  /**
+   * Age at which THIS person's career income stops. Absent = works to the
+   * horizon end (the old behavior — and the old realism hole: nobody could
+   * ever retire).
+   */
+  retireAge: age.optional(),
 });
 export type Person = z.infer<typeof personSchema>;
 
@@ -188,6 +194,36 @@ const mortgageSchema = z.object({
 });
 export type MortgageConfig = z.infer<typeof mortgageSchema>;
 
+/**
+ * A recurring income stream keyed to the PRIMARY (first) person's age —
+ * social security, a pension, rental income, an annuity. Amounts are in
+ * today's dollars when `inflationAdjusted` (the default, like CPI-indexed
+ * social security); untick it for a fixed-nominal pension. Taxed at the
+ * flat effective rate like all other income.
+ */
+const otherIncomeSchema = z.object({
+  label,
+  startAge: age,
+  /** Last age it pays (inclusive). Absent = for life (horizon end). */
+  endAge: age.optional(),
+  annualAmount: positiveMoney,
+  inflationAdjusted: z.boolean().optional(),
+});
+export type OtherIncome = z.infer<typeof otherIncomeSchema>;
+
+/**
+ * Retirement-phase settings, active from the PRIMARY person's `retireAge`
+ * year. Both knobs optional: spending typically drops in retirement
+ * (`spendingPct` of the working baseline), and portfolios usually get more
+ * conservative (`postReturnPct` replaces the base return; the low/high band
+ * keeps its spread around it).
+ */
+const retirementSchema = z.object({
+  spendingPct: z.number().min(0).max(200).optional(),
+  postReturnPct: z.number().min(-50).max(100).optional(),
+});
+export type RetirementConfig = z.infer<typeof retirementSchema>;
+
 // ---------- Top-level assumptions ----------
 
 export const assumptionsSchema = z
@@ -228,6 +264,12 @@ export const assumptionsSchema = z
     // Home + mortgage. Optional — when present it's part of the main
     // projection (home asset + mortgage liability + carrying costs).
     mortgage: mortgageSchema.optional(),
+    // Recurring income streams (social security / pension / rental / annuity),
+    // keyed to the primary person's age. Optional.
+    otherIncomes: z.array(otherIncomeSchema).max(50).optional(),
+    // Retirement-phase knobs (spending change, post-retirement return),
+    // active from the primary person's retireAge. Optional.
+    retirement: retirementSchema.optional(),
   })
   .refine((v) => v.horizonEndYear >= v.horizonStartYear, {
     message: 'horizonEndYear must be ≥ horizonStartYear',

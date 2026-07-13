@@ -26,8 +26,15 @@ import type {
  *      investments. `investedSharePct` (default 100) sets how much of a
  *      positive surplus actually gets invested. No bond/stock allocation
  *      within the invested pool.
- *   3. **No Social Security, no pensions, no annuities.** Income outside
- *      the career stages comes only from windfalls.
+ *   3. **Retirement phase.** Each person's career income stops at their
+ *      optional `retireAge` (absent = works to the horizon end). From the
+ *      PRIMARY person's retirement year, `retirement.spendingPct` scales the
+ *      recurring baseline (majors are untouched) and
+ *      `retirement.postReturnPct` replaces the base return (the low/high
+ *      band keeps its spread). `otherIncomes[]` — social security, pensions,
+ *      rental, annuities — pay from a start age (keyed to the primary
+ *      person), in today's dollars when inflation-adjusted (the default),
+ *      and are taxed at the flat rate like all income.
  *   4. **Optional home + mortgage.** When `assumptions.mortgage` is set,
  *      net worth = invested + cash + (home value − mortgage balance): the
  *      down payment converts cash→equity, each payment splits into interest
@@ -197,6 +204,15 @@ export function simulateScenario(
   let homeValue = 0;
   let mortgageBalance = 0;
 
+  // Retirement-phase constants (assumption #3), keyed to the primary person.
+  const primary = a.people[0];
+  const retireYear =
+    primary?.retireAge !== undefined ? primary.birthYear + primary.retireAge : null;
+  const retSpendShare = a.retirement?.spendingPct;
+  const postReturn = a.retirement?.postReturnPct;
+  // Keep the low/high band's spread when the post-retirement return kicks in.
+  const returnSpreadOffset = returnPct - a.investment.returnPct;
+
   // For `incomeScaled` mode we need to walk year-to-year carrying the
   // previous baseline and the previous after-tax income so we can add
   // creepShare × ΔafterTax to next year's baseline.
@@ -207,6 +223,10 @@ export function simulateScenario(
   for (let i = 0; i < totalYears; i += 1) {
     const year = a.horizonStartYear + i;
     const yearsElapsed = i;
+
+    // Inflation factor for this row (T=i+1 nominal) — used by expenses,
+    // real-dollar deflation, and inflation-adjusted income streams alike.
+    const expenseInflationFactor = Math.pow(1 + inflRate, yearsElapsed + 1);
 
     // 1. Income (gross) summed across people.
     const ages: Record<string, number> = {};
@@ -227,12 +247,22 @@ export function simulateScenario(
       }
       grossIncome += salary;
     }
+    // Other income streams — social security / pension / rental / annuity,
+    // keyed to the primary person's age. Today's dollars when inflation-
+    // adjusted (default); fixed nominal otherwise. Taxed like all income.
+    if (a.otherIncomes && primary) {
+      const pAge = year - primary.birthYear;
+      for (const inc of a.otherIncomes) {
+        if (pAge >= inc.startAge && (inc.endAge === undefined || pAge <= inc.endAge)) {
+          grossIncome +=
+            inc.annualAmount * (inc.inflationAdjusted === false ? 1 : expenseInflationFactor);
+        }
+      }
+    }
     const afterTaxIncome = grossIncome * (1 - a.effectiveTaxRatePct / 100);
 
     // 2. Expenses. The recurring/inflation-only convention (T=i+1 nominal)
     // is preserved; lifestyle-creep stacks on top per assumption #6a.
-    const expenseInflationFactor = Math.pow(1 + inflRate, yearsElapsed + 1);
-
     let baselineExpenses: number;
     if (lifestyle.mode === 'flat') {
       // (1+infl)^(i+1) × (1+creep)^(i+1). When creep=0 this collapses to
@@ -253,7 +283,14 @@ export function simulateScenario(
     }
     let majorExpensesThisYear = 0;
     for (const e of a.majorExpenses) majorExpensesThisYear += amountForYear(e, year);
-    const expenses = baselineExpenses + majorExpensesThisYear;
+    // Retirement spending change scales the recurring baseline only (explicit
+    // major expenses are never scaled). The incomeScaled carry keeps the RAW
+    // baseline so the multiplier doesn't compound year over year.
+    const retSpendMult =
+      retSpendShare !== undefined && retireYear !== null && year >= retireYear
+        ? retSpendShare / 100
+        : 1;
+    const expenses = baselineExpenses * retSpendMult + majorExpensesThisYear;
 
     // 3. Windfalls — one-time, always go to the pool.
     let windfalls = 0;
@@ -273,12 +310,18 @@ export function simulateScenario(
     // your portfolio, not your checking account), then route this year's
     // flows. Per-year return priority: market-shock stress (a fixed crash
     // year) > Monte-Carlo sampled return > the constant `returnPct`.
+    // From retirement, an (optional) more conservative return takes over —
+    // shifted by this run's band offset so low/base/high keep their spread.
+    const constantReturn =
+      postReturn !== undefined && retireYear !== null && year >= retireYear
+        ? postReturn + returnSpreadOffset
+        : returnPct;
     const yearReturnPct =
       stress?.marketShock && stress.marketShock.year === year
         ? stress.marketShock.returnPct
         : sampleReturn
           ? sampleReturn(i)
-          : returnPct;
+          : constantReturn;
     const investmentGrowth = invested * (yearReturnPct / 100);
     invested += investmentGrowth;
 
@@ -369,6 +412,9 @@ function annualMortgagePayment(loan: number, ratePct: number, years: number): nu
 
 function personSalaryForYear(person: Person, year: number): number {
   const age = year - person.birthYear;
+  // Retired — career income stops. (Absent retireAge = the old behavior:
+  // the latest stage pays forever.)
+  if (person.retireAge !== undefined && age >= person.retireAge) return 0;
   let active: CareerStage | null = null;
   for (const stage of person.careerStages) {
     if (stage.startAge <= age && (active === null || stage.startAge > active.startAge)) {

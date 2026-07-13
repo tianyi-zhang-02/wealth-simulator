@@ -6,6 +6,30 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Retirement realism — people can finally retire
+
+Modeled on full-featured retirement calculators (à la Financial Mentor's
+"Ultimate Retirement Calculator"). Previously career income ran to the
+horizon end — nobody could retire.
+
+- **Added** a per-person **retire age** (career income stops; absent = the
+  old behavior). The projection immediately reflects the earning-years vs
+  drawdown-years split, and the pixel journey plants a **deck chair** on the
+  retirement year.
+- **Added** a **Retirement & other income** section: retirement spending as
+  a % of the working baseline (spending usually drops), an optional
+  **post-retirement return** (the low–high band keeps its spread), and
+  unlimited **income streams** — social security, pensions, rental,
+  annuities — each with start/end age, inflation-adjusted (default, like
+  CPI-indexed social security) or fixed-nominal, taxed like all income.
+- All opt-in — 97 tests, zero regressions.
+
+### Pixel polish
+
+- **Fixed** snowflakes now melt when they reach the ground (never drawn
+  below the terrain — the white terrain top reads as snowpack), and larger
+  flakes are little ❄-style crosses instead of square dots.
+
 ### Opt-in "Save on this device"
 
 - **Added** a **Save on this device** toggle in the scenario bar — tick it
