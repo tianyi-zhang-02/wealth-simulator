@@ -143,7 +143,7 @@ horizon end — nobody could retire.
 First tagged release of **Accretia** — a complete, bilingual, fully
 client-side wealth-projection simulator.
 
-_Live: https://tracker-gamma-eight-14.vercel.app_
+_Live: https://accretia.vercel.app_
 
 ### More conservative default returns
 
@@ -553,7 +553,7 @@ deleted and there are no DB changes; this is a reversible re-focus.**
 
 ## Step 14 — Deploy — 2026-05-31 _(PR #4 + #6)_
 
-- **Deployed** to https://tracker-gamma-eight-14.vercel.app on Vercel.
+- **Deployed** to https://accretia.vercel.app on Vercel.
   Zero-config Next 16 build (no `vercel.json`). One-project Supabase setup.
 - **Added** `STEP_14_DEPLOY.md` operator runbook.
 

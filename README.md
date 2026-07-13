@@ -10,7 +10,7 @@ Everything runs in the browser. **There is no backend, no database, no account, 
 
 > Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Recharts · Zod. No environment variables. No server.
 
-**Live:** https://tracker-gamma-eight-14.vercel.app
+**Live:** https://accretia.vercel.app
 
 ---
 
