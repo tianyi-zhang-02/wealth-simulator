@@ -18,6 +18,7 @@ import type {
   Lifestyle,
   MajorExpense,
   MortgageConfig,
+  OtherIncome,
   Person,
   Windfall,
 } from '@/lib/validation/scenarios';
@@ -852,6 +853,15 @@ export default function AssumptionsForm({ value, onChange }: { value: Assumption
                   max={2200}
                   onChange={(n) => patchPerson(p.id, { birthYear: Math.round(n) })}
                 />
+                <NumField
+                  label={t.form.person.retireAt}
+                  value={p.retireAge ?? 0}
+                  min={0}
+                  max={120}
+                  onChange={(n) =>
+                    patchPerson(p.id, { retireAge: n <= 0 ? undefined : Math.round(n) })
+                  }
+                />
               </div>
 
               <div className="mt-3 flex items-center justify-between">
@@ -1233,6 +1243,136 @@ export default function AssumptionsForm({ value, onChange }: { value: Assumption
           defaultYear={value.horizonStartYear + 1}
           onChange={(next) => update({ mortgage: next })}
         />
+      </Section>
+
+      <Section title={t.form.section.retirement} defaultOpen={false}>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <NumField
+              label={t.form.retirement.spending}
+              value={value.retirement?.spendingPct ?? 100}
+              step={5}
+              min={0}
+              max={200}
+              suffix="%"
+              onChange={(n) =>
+                update({
+                  retirement: {
+                    ...value.retirement,
+                    spendingPct: Math.min(200, Math.max(0, n)),
+                  },
+                })
+              }
+            />
+            <NumField
+              label={t.form.retirement.postReturn}
+              value={value.retirement?.postReturnPct ?? value.investment.returnPct}
+              step={0.25}
+              suffix="%"
+              onChange={(n) => update({ retirement: { ...value.retirement, postReturnPct: n } })}
+            />
+          </div>
+          <p className="text-muted text-[10px]">{t.form.retirement.note}</p>
+
+          <p className="text-muted text-[10px] tracking-[0.18em] uppercase">
+            {t.form.retirement.incomes}
+          </p>
+          {(value.otherIncomes ?? []).map((inc, i) => {
+            const incomes = value.otherIncomes ?? [];
+            const setIncomes = (list: OtherIncome[]) =>
+              update({ otherIncomes: list.length > 0 ? list : undefined });
+            return (
+              <div key={i} className="border-border rounded border p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label={t.form.retirement.label}
+                    value={inc.label}
+                    onChange={(v) =>
+                      setIncomes(incomes.map((x, j) => (j === i ? { ...x, label: v } : x)))
+                    }
+                  />
+                  <NumField
+                    label={t.form.retirement.amount}
+                    value={inc.annualAmount}
+                    step={1000}
+                    min={0}
+                    suffix="$"
+                    onChange={(v) =>
+                      setIncomes(
+                        incomes.map((x, j) =>
+                          j === i ? { ...x, annualAmount: Math.max(0, v) } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <NumField
+                    label={t.form.retirement.startAge}
+                    value={inc.startAge}
+                    min={0}
+                    max={120}
+                    onChange={(v) =>
+                      setIncomes(
+                        incomes.map((x, j) => (j === i ? { ...x, startAge: Math.round(v) } : x)),
+                      )
+                    }
+                  />
+                  <NumField
+                    label={t.form.retirement.endAge}
+                    value={inc.endAge ?? 0}
+                    min={0}
+                    max={120}
+                    onChange={(v) =>
+                      setIncomes(
+                        incomes.map((x, j) =>
+                          j === i ? { ...x, endAge: v <= 0 ? undefined : Math.round(v) } : x,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <label className="text-muted flex items-center gap-1.5 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={inc.inflationAdjusted !== false}
+                      onChange={(e) =>
+                        setIncomes(
+                          incomes.map((x, j) =>
+                            j === i
+                              ? { ...x, inflationAdjusted: e.target.checked ? undefined : false }
+                              : x,
+                          ),
+                        )
+                      }
+                    />
+                    {t.form.retirement.inflAdj}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIncomes(incomes.filter((_, j) => j !== i))}
+                    className="text-muted hover:text-negative text-[11px]"
+                  >
+                    {t.form.retirement.remove}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() =>
+              update({
+                otherIncomes: [
+                  ...(value.otherIncomes ?? []),
+                  { label: t.form.retirement.defaultLabel, startAge: 67, annualAmount: 24_000 },
+                ],
+              })
+            }
+            className="border-border hover:bg-foreground/5 self-start rounded border px-3 py-1.5 text-xs"
+          >
+            {t.form.retirement.addIncome}
+          </button>
+        </div>
       </Section>
     </div>
   );

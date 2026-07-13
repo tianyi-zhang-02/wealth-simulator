@@ -246,6 +246,13 @@ export default function PixelJourney({
           px(x, gy - 4, pal.roof, 2, 1);
           px(x, gy - 2, pal.gold, 2, 1); // strap
           break;
+        case 'retire': // a deck chair, tilted back — work is done here
+          px(x - 3, gy - 5, pal.umbrella, 1, 2); // reclined back (top)
+          px(x - 2, gy - 4, pal.umbrella, 1, 2);
+          px(x - 1, gy - 2, pal.umbrella, 4, 1); // seat
+          px(x - 1, gy - 1, pal.sign, 1, 1); // legs
+          px(x + 2, gy - 1, pal.sign, 1, 1);
+          break;
         case 'lean': // a tent
           px(x - 1, gy - 4, pal.tent, 2, 1);
           px(x - 2, gy - 3, pal.tent, 4, 1);
@@ -395,12 +402,25 @@ export default function PixelJourney({
         px(catX - 1, cgy - 3 + (step ? 0 : -1), pal.cat, 1, 1); // tail flick
       }
 
-      // snow scene: gentle foreground snowfall
+      // snow scene: flakes drift down and melt where they meet the ground
+      // (the white terrain top is the accumulated snowpack). Larger flakes
+      // are little ❄-style crosses, small ones single motes.
       if (scene === 'snow') {
-        for (let f = 0; f < 18; f += 1) {
-          const fx = (f * 89 + Math.floor(time) * 7) % W;
-          const fy = (time * (9 + (f % 4)) + f * 23) % (H - 4);
-          px(fx, fy, pal.sail, 1, 1);
+        for (let f = 0; f < 16; f += 1) {
+          const fx = (f * 97 + Math.floor(time * 1.5 + f)) % W;
+          const gTop = groundTop(fx);
+          const fy = (time * (7 + (f % 4)) + f * 29) % gTop; // never below ground
+          if (fy >= gTop - 1) continue;
+          if (f % 3 === 0) {
+            // cross-shaped flake
+            px(fx, fy, pal.sail, 1, 1);
+            px(fx - 1, fy, pal.sail, 1, 1);
+            px(fx + 1, fy, pal.sail, 1, 1);
+            px(fx, fy - 1, pal.sail, 1, 1);
+            px(fx, fy + 1, pal.sail, 1, 1);
+          } else {
+            px(fx, fy, pal.sail, 1, 1);
+          }
         }
       }
 
