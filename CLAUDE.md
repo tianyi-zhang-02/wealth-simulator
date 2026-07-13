@@ -14,7 +14,7 @@
 
 The repo was formerly a full net-worth tracker (Supabase + auth + accounts/transactions/holdings/portfolio). All of that was deliberately removed — the owner uses a real brokerage for tracking and wanted just the projection tool. The old code is preserved in git history; do not resurrect it.
 
-**Live:** https://tracker-gamma-eight-14.vercel.app
+**Live:** https://accretia.vercel.app
 
 ---
 
