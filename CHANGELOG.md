@@ -6,6 +6,17 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Opt-in "Save on this device"
+
+- **Added** a **Save on this device** toggle in the scenario bar — tick it
+  and your scenarios live in this browser's `localStorage` (single key,
+  `accretia:saved:v1`), restored on the next visit so you can continue
+  planning. **Default OFF: nothing is stored and a refresh still starts
+  clean**, exactly as before. Data stays on your device — still nothing is
+  ever sent anywhere; restored data is validated against the schema like
+  any untrusted input, and unticking erases the key immediately. Bilingual.
+  Privacy copy in both READMEs and the CLAUDE.md rule updated to match.
+
 ### Pixel world 2.0 — categories, tiered houses, scenes, stress weather
 
 - **Added** an optional **category** on major expenses (car / home (second
