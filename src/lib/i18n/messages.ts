@@ -48,6 +48,9 @@ const en = {
     imported: 'Imported.',
     invalidScenario: 'That file is not a valid scenario.',
     unreadableFile: 'Could not read that file.',
+    saveLocal: 'Save on this device',
+    saveLocalHint:
+      'Kept only in this browser’s local storage — on your device, never sent anywhere. Untick to erase.',
     defaultName: (n: number) => `Scenario ${n}`,
     copySuffix: (name: string) => `${name} (copy)`,
     importedName: 'Imported scenario',
@@ -397,6 +400,8 @@ const zh: Messages = {
     imported: '已导入。',
     invalidScenario: '该文件不是有效的方案。',
     unreadableFile: '无法读取该文件。',
+    saveLocal: '在本设备保存',
+    saveLocalHint: '仅保存在此浏览器的本地存储中——只在你的设备上，绝不上传。取消勾选即清除。',
     defaultName: (n: number) => `方案 ${n}`,
     copySuffix: (name: string) => `${name}（副本）`,
     importedName: '导入的方案',

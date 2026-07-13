@@ -64,6 +64,15 @@ function downloadScenarioJson(name: string, assumptions: Assumptions): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+/**
+ * Opt-in local persistence. Default OFF — nothing is stored and a refresh
+ * resets, exactly as before. When the user ticks "Save on this device",
+ * scenarios live under this single localStorage key, on their device only
+ * (nothing is ever sent anywhere); unticking erases it. Restored data is
+ * validated against `assumptionsSchema` like any other untrusted input.
+ */
+const STORAGE_KEY = 'accretia:saved:v1';
+
 /** Public entry — provides the locale context to the whole app. */
 export default function SimulatorClient() {
   return (
@@ -92,6 +101,49 @@ function SimulatorInner() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showPixel, setShowPixel] = useState(true);
   const [pixelScene, setPixelScene] = useState<PixelScene>('meadow');
+  const [saveLocal, setSaveLocal] = useState(false);
+
+  // Restore a saved session once, after mount (deferred a tick so the SSR
+  // and hydration renders agree; storage is untrusted → validate everything).
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { scenarios?: unknown; selectedId?: unknown };
+        if (!Array.isArray(parsed.scenarios)) return;
+        const restored: ComparableScenario[] = [];
+        for (const s of parsed.scenarios) {
+          const c = s as { id?: unknown; name?: unknown; assumptions?: unknown };
+          const a = assumptionsSchema.safeParse(c.assumptions);
+          if (a.success && typeof c.id === 'string' && typeof c.name === 'string') {
+            restored.push({ id: c.id, name: c.name.slice(0, 80), assumptions: a.data });
+          }
+        }
+        if (restored.length === 0) return;
+        setScenarios(restored);
+        setSelectedId(
+          typeof parsed.selectedId === 'string' && restored.some((r) => r.id === parsed.selectedId)
+            ? parsed.selectedId
+            : restored[0]!.id,
+        );
+        setSaveLocal(true);
+      } catch {
+        // Corrupted storage → start clean rather than crash.
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  // While enabled, mirror every change to localStorage (device-only).
+  useEffect(() => {
+    if (!saveLocal) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ scenarios, selectedId }));
+    } catch {
+      // Storage full/blocked — silently keep running in-memory.
+    }
+  }, [saveLocal, scenarios, selectedId]);
   const [fontScale, setFontScale] = useState(1);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -380,6 +432,28 @@ function SimulatorInner() {
             onChange={onImportFile}
             className="hidden"
           />
+          <label
+            className="text-muted flex cursor-pointer items-center gap-1.5 text-[11px]"
+            title={t.scenarioBar.saveLocalHint}
+          >
+            <input
+              type="checkbox"
+              checked={saveLocal}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSaveLocal(true);
+                } else {
+                  setSaveLocal(false);
+                  try {
+                    localStorage.removeItem(STORAGE_KEY);
+                  } catch {
+                    // ignore
+                  }
+                }
+              }}
+            />
+            {t.scenarioBar.saveLocal}
+          </label>
           {scenarios.length >= 2 ? (
             <button
               type="button"

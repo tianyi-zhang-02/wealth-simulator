@@ -24,7 +24,7 @@ Do not add, or propose without flagging loudly, any of:
 
 - A backend, API route, database, or auth of any kind.
 - Network requests to anything (no `fetch`, no third-party APIs, no analytics, no telemetry, no fonts/CDNs beyond what `next/font` self-hosts at build time).
-- Persistent storage — no `localStorage`, `sessionStorage`, cookies, IndexedDB. Persistence is file export/import only.
+- Persistent storage — no `sessionStorage`, cookies, or IndexedDB. Persistence is file export/import, plus ONE owner-approved exception: the opt-in "Save on this device" toggle (`localStorage` key `accretia:saved:v1`, default OFF, validated on load, erased on untick). Any storage beyond that key still requires flagging.
 - Environment variables / secrets. There are none, and there should be none.
 
 If a requested feature seems to need any of the above, **stop and flag it** — it changes the entire nature of the project.
