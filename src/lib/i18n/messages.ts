@@ -249,7 +249,7 @@ const en = {
     setTarget: 'Set a target',
     clearTarget: 'Clear target',
     hintNoTarget:
-      'Set a target net worth at an age (e.g. $5M by 50) and the simulator will show how much each lever — savings, return, spending, or time — would have to change on its own to get there.',
+      'Set a target net worth at an age (e.g. $5M by 50 — or $100M) and the simulator will show how much each lever — savings, return, spending, time, or a one-time liquidity event — would have to change on its own to get there.',
     hintNoPeople:
       'Add at least one person under “People & careers” so the target age can resolve to a year.',
     targetAmount: 'Target amount',
@@ -267,6 +267,8 @@ const en = {
     leverReturn: 'Average return',
     leverSpendLess: 'Spend less',
     leverPushAge: 'Push target age',
+    leverWindfall: 'Liquidity event',
+    windfallNote: 'one-time — an exit, sale, or inheritance this year; later means bigger',
     perMonth: (money: string) => `${money}/mo`,
     perMonthVsNow: (moneyDelta: string) => `${moneyDelta}/mo vs now`,
     pointsDelta: (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} pts`,
@@ -619,7 +621,7 @@ const zh: Messages = {
     setTarget: '设定目标',
     clearTarget: '清除目标',
     hintNoTarget:
-      '设定某个年龄要达到的目标净资产（如 50 岁前 500 万美元），模拟器会分别算出：单靠储蓄、收益率、开支或时间中的某一项，需要变到多少才能达标。',
+      '设定某个年龄要达到的目标净资产（如 50 岁前 500 万美元，甚至 1 亿），模拟器会分别算出：单靠储蓄、收益率、开支、时间或一次性流动性事件中的某一项，需要变到多少才能达标。',
     hintNoPeople: '请先在「成员与职业」中至少添加一位成员，目标年龄才能对应到具体年份。',
     targetAmount: '目标金额',
     byAge: '目标年龄',
@@ -636,6 +638,8 @@ const zh: Messages = {
     leverReturn: '平均收益率',
     leverSpendLess: '少花钱',
     leverPushAge: '推迟目标年龄',
+    leverWindfall: '流动性事件',
+    windfallNote: '一次性——今年发生的退出、出售或继承;越晚需要越大',
     perMonth: (money: string) => `${money}/月`,
     perMonthVsNow: (moneyDelta: string) => `${moneyDelta}/月（较当前）`,
     pointsDelta: (d: number) => `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} 个百分点`,

@@ -260,6 +260,12 @@ function GoalSeekDisplay({ result }: { result: GoalSeekResult }) {
           formatValue={(v) => t.goalSeek.ageValue(v)}
           formatDelta={(d) => t.goalSeek.yearsDelta(d)}
         />
+        <LeverRow
+          label={t.goalSeek.leverWindfall}
+          result={result.levers.oneTimeWindfall}
+          formatValue={(v) => fmt.currency0(v)}
+          formatDelta={() => t.goalSeek.windfallNote}
+        />
       </ul>
     </div>
   );
