@@ -6,6 +6,18 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Goal seek: the liquidity-event lever
+
+Some targets (say, $100M) are beyond any savings rate — they're an
+exit-sized number, not a budgeting question. Previously all four levers
+just said "not reachable" and the panel went silent.
+
+- **Added** a fifth goal-seek lever: **Liquidity event** — the one-time
+  windfall (equity exit, business sale, inheritance), landing in the first
+  horizon year, that would close the gap. Solved by bisection over the
+  engine like every other lever, so it round-trips exactly. Earliest year =
+  the minimum possible check; the row says so. Bilingual. 104 tests.
+
 ### Unpredictable pay — partner draws, commission
 
 Some careers don't have a salary so much as a distribution: a law-firm

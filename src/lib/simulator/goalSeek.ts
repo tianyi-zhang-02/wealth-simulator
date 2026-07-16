@@ -27,6 +27,11 @@ import { simulate } from './engine';
  *   - annualExpenses: recurring household expenses baseline.
  *   - targetAge: the age by which the target is hit (lever varies the age
  *     itself, holding the dollar amount fixed).
+ *   - oneTimeWindfall: a single liquidity event (equity exit, business
+ *     sale, inheritance) landing in the FIRST horizon year — i.e. the
+ *     minimum possible check, since earlier money compounds longest. This
+ *     is the lever that answers targets no savings rate can reach
+ *     (a $100M goal is an exit-sized number, not a budgeting question).
  *
  * Search bounds were picked to be wide enough to capture realistic answers
  * without exploding to absurd numbers. If a lever can't close the gap
@@ -78,6 +83,7 @@ export type GoalSeekResult =
         returnPct: SolveResult;
         annualExpenses: SolveResult;
         targetAge: SolveResult;
+        oneTimeWindfall: SolveResult;
       };
     };
 
@@ -235,6 +241,7 @@ export function solveGoalSeek(a: Assumptions): GoalSeekResult {
         returnPct: { ok: false, reason: 'projection unavailable' },
         annualExpenses: { ok: false, reason: 'projection unavailable' },
         targetAge: { ok: false, reason: 'projection unavailable' },
+        oneTimeWindfall: { ok: false, reason: 'projection unavailable' },
       },
     };
   }
@@ -302,6 +309,28 @@ export function solveGoalSeek(a: Assumptions): GoalSeekResult {
     evaluate: (v) => netWorthAtAge(a, v),
   });
 
+  // Lever 5: a one-time liquidity event (exit / sale / inheritance) landing
+  // in the first horizon year — the earliest possible, so this is the
+  // MINIMUM check size; a later event would have to be bigger. Bounded at
+  // the schema's money cap. This is the lever that still has an answer when
+  // the target is beyond any savings rate (e.g. $100M).
+  const windfallYear = a.horizonStartYear;
+  const windfallLever = bisect({
+    lo: 0,
+    hi: 1e12,
+    target: targetAmount,
+    tolerance: Math.max(1_000, targetAmount * 1e-6),
+    evaluate: (v) =>
+      netWorthAtAge(
+        {
+          ...a,
+          windfalls: [...a.windfalls, { label: 'goal-seek exit', year: windfallYear, amount: v }],
+        },
+        targetAge,
+      ),
+    increasing: true,
+  });
+
   // Fill in deltas (each lever's required value minus its current value).
   function withDelta(r: SolveResult, current: number): SolveResult {
     if (!r.ok) return r;
@@ -319,6 +348,8 @@ export function solveGoalSeek(a: Assumptions): GoalSeekResult {
       returnPct: withDelta(returnLever, currentReturn),
       annualExpenses: withDelta(expensesLever, currentExpenses),
       targetAge: withDelta(ageLever, targetAge),
+      // A one-time event has no "current setting" — delta = the full check.
+      oneTimeWindfall: withDelta(windfallLever, 0),
     },
   };
 }

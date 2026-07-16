@@ -245,3 +245,39 @@ describe('solveGoalSeek — deltas reflect distance from current setting', () =>
     expect(lever.value).toBeGreaterThan(a.investment.returnPct);
   });
 });
+
+describe('solveGoalSeek — one-time windfall lever (liquidity event)', () => {
+  it('round trip: solved windfall in the first horizon year → hits target', () => {
+    const a = baseScenario({ target: { amount: 5_000_000, age: 50 } });
+    const result = solveGoalSeek(a);
+    if (result.kind !== 'short') throw new Error('expected short');
+    const lever = result.levers.oneTimeWindfall;
+    if (!lever.ok) throw new Error('expected solvable');
+    const patched: Assumptions = {
+      ...a,
+      windfalls: [{ label: 'exit', year: a.horizonStartYear, amount: lever.value }],
+    };
+    expect(netWorthAtAge(patched, 50)).toBeCloseTo(5_000_000, -4);
+    // One-time event: delta IS the check.
+    expect(lever.delta).toBe(lever.value);
+  });
+
+  it('a $100M target: every rate-based lever fails, the liquidity event still answers', () => {
+    const a = baseScenario({ target: { amount: 100_000_000, age: 50 } });
+    const result = solveGoalSeek(a);
+    if (result.kind !== 'short') throw new Error('expected short');
+    expect(result.levers.extraMonthlyContribution.ok).toBe(false); // $50k/mo cap
+    expect(result.levers.annualExpenses.ok).toBe(false); // even $0 spend falls short
+    const windfall = result.levers.oneTimeWindfall;
+    if (!windfall.ok) throw new Error('expected the exit lever to solve');
+    // 20 years at 7% ≈ 3.87x → need roughly $100M/3.87 ≈ $26M, minus what
+    // the salary path contributes. Sanity band, then exact round-trip.
+    expect(windfall.value).toBeGreaterThan(15_000_000);
+    expect(windfall.value).toBeLessThan(30_000_000);
+    const patched: Assumptions = {
+      ...a,
+      windfalls: [{ label: 'exit', year: a.horizonStartYear, amount: windfall.value }],
+    };
+    expect(netWorthAtAge(patched, 50)).toBeCloseTo(100_000_000, -5);
+  });
+});
