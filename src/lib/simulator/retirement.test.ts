@@ -30,6 +30,34 @@ function mk(overrides: Partial<Assumptions> = {}): Assumptions {
   };
 }
 
+describe('non-linear careers', () => {
+  it('a $0-salary stage is a career break — income stops, then resumes at the next stage', () => {
+    const a = mk();
+    // Work 2026–27 at 100k → break 2028–29 → back 2030–31 at 80k (a pay cut).
+    a.people[0]!.careerStages = [
+      { label: 'job', startAge: 30, baseSalary: 100_000, annualRaisePct: 0 },
+      { label: 'break', startAge: 32, baseSalary: 0, annualRaisePct: 0 },
+      { label: 'back', startAge: 34, baseSalary: 80_000, annualRaisePct: 0 },
+    ];
+    const { rows } = simulate(a);
+    expect(rows.map((r) => r.grossIncome)).toEqual([
+      100_000, 100_000, 0, 0, 80_000, 80_000,
+    ]);
+    // Break years still pay the bills: 2 years × 40k drawn from savings.
+    expect(rows[3]!.netWorth).toBe(2 * 60_000 - 2 * 40_000);
+  });
+
+  it('a negative raise models a declining salary', () => {
+    const a = mk();
+    a.people[0]!.careerStages = [
+      { label: 'fade', startAge: 30, baseSalary: 100_000, annualRaisePct: -10 },
+    ];
+    const { rows } = simulate(a);
+    expect(rows[0]!.grossIncome).toBe(100_000);
+    expect(rows[2]!.grossIncome).toBeCloseTo(100_000 * 0.9 * 0.9, 6);
+  });
+});
+
 describe('retirement realism', () => {
   it('career income stops at retireAge (people could never retire before)', () => {
     const a = mk();

@@ -658,6 +658,32 @@ export default function AssumptionsForm({ value, onChange }: { value: Assumption
     ]);
   }
 
+  // Careers aren't linear. A career break is just a $0-salary stage — the
+  // engine already supports it — so this quick-add inserts the break AND a
+  // "back to work" stage two years later resuming the prior pay, ready for
+  // the user to adjust ages/salary.
+  function addBreak(personId: string) {
+    const p = value.people.find((x) => x.id === personId);
+    if (!p) return;
+    const latest = p.careerStages.reduce<CareerStage | null>(
+      (acc, s) => (acc === null || s.startAge > acc.startAge ? s : acc),
+      null,
+    );
+    const breakAge = latest ? latest.startAge + 8 : 30;
+    setStages(personId, [
+      ...p.careerStages,
+      { label: t.form.person.breakLabel, startAge: breakAge, baseSalary: 0, annualRaisePct: 0 },
+      {
+        label: t.form.person.backLabel,
+        startAge: breakAge + 2,
+        baseSalary: latest?.baseSalary ?? 100_000,
+        annualRaisePct: latest?.annualRaisePct ?? 3,
+        ...(latest?.bonusPct !== undefined ? { bonusPct: latest.bonusPct } : {}),
+        ...(latest?.annualEquity !== undefined ? { annualEquity: latest.annualEquity } : {}),
+      },
+    ]);
+  }
+
   function patchStage(personId: string, idx: number, patch: Partial<CareerStage>) {
     const p = value.people.find((x) => x.id === personId);
     if (!p) return;
@@ -895,8 +921,16 @@ export default function AssumptionsForm({ value, onChange }: { value: Assumption
                   >
                     {t.form.person.addStage}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => addBreak(p.id)}
+                    className="border-border hover:bg-foreground/5 rounded border px-2 py-1 text-[11px]"
+                  >
+                    {t.form.person.addBreak}
+                  </button>
                 </div>
               </div>
+              <p className="text-muted mt-1 text-[10px]">{t.form.person.stagesHint}</p>
 
               {p.careerStages.length === 0 ? (
                 <p className="text-muted mt-2 text-xs italic">{t.form.person.noStages}</p>

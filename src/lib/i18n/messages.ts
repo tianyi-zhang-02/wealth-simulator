@@ -169,6 +169,11 @@ const en = {
       defaultName: (n: number) => `Person ${n}`,
       newStageLabel: 'New stage',
       retireAt: 'Retire at age (0 = never)',
+      addBreak: '+ Career break',
+      breakLabel: 'Career break',
+      backLabel: 'Back to work',
+      stagesHint:
+        'Careers aren’t linear — stages can model plateaus (0% raise), pay cuts (negative raise or a lower-salary stage), and time off ($0-salary stage).',
     },
     retirement: {
       spending: 'Retirement spending (% of current)',
@@ -533,6 +538,11 @@ const zh: Messages = {
       defaultName: (n: number) => `成员 ${n}`,
       newStageLabel: '新阶段',
       retireAt: '退休年龄（0 = 不退休）',
+      addBreak: '+ 职业空窗',
+      breakLabel: '职业空窗',
+      backLabel: '重返职场',
+      stagesHint:
+        '职业不是一路上升的——阶段可以模拟停滞（涨薪 0%）、降薪（负涨幅或低薪新阶段）、以及离开职场（薪资为 0 的阶段）。',
     },
     retirement: {
       spending: '退休后开支（现开支的 %）',
