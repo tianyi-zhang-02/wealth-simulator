@@ -6,6 +6,24 @@ The project doesn't ship a versioned package — entries are grouped by mileston
 
 ## [Unreleased]
 
+### Non-linear careers, made visible
+
+Salaries don't only go up — people plateau, take pay cuts, and step away
+from work. The engine's stage model always supported all of that (a stage
+with a 0% raise, a negative raise, or a $0 salary), but nothing in the UI
+said so.
+
+- **Added** a **+ Career break** quick-add on each person: inserts a
+  $0-salary break stage plus a "Back to work" stage two years later that
+  resumes the prior stage's full comp (salary, raise, bonus, equity), ready
+  to adjust.
+- **Added** a hint under Career stages spelling out the patterns: plateaus
+  (0% raise), pay cuts (negative raise or a lower-salary stage), time off
+  ($0-salary stage). Bilingual.
+- **Added** engine tests pinning the break behavior (income stops, bills
+  still paid from savings, income resumes) and declining salaries (negative
+  raise). 99 tests.
+
 ## [1.1.0] — 2026-07-13
 
 The realism-and-delight release: a two-pool cash model, true retirement
